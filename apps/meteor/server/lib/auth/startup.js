@@ -23,6 +23,7 @@ import { joinDefaultChannels } from '../rooms/joinDefaultChannels';
 import { getAvatarSuggestionForUser } from '../users/getAvatarSuggestionForUser';
 import { setAvatarFromServiceWithValidation } from '../users/setUserAvatar';
 import { getBaseUserFields } from '../utils/functions/getBaseUserFields';
+import { getWorkspaceURL } from '../utils/getURL';
 
 Accounts.config({
 	forbidClientAccountCreation: true,
@@ -130,7 +131,15 @@ Accounts.emailTemplates.verifyEmail.subject = function () {
 };
 
 Accounts.urls.resetPassword = function (token) {
-	return Meteor.absoluteUrl(`reset-password/${token}`);
+	return getWorkspaceURL(`reset-password/${token}`);
+};
+
+Accounts.urls.verifyEmail = function (token) {
+	return getWorkspaceURL(`#/verify-email/${token}`);
+};
+
+Accounts.urls.enrollAccount = function (token) {
+	return getWorkspaceURL(`#/enroll-account/${token}`);
 };
 
 Accounts.emailTemplates.resetPassword.subject = function (userModel) {
