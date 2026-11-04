@@ -1,0 +1,74 @@
+{
+  "baseline": "8.9.0",
+  "settings": [
+    {
+      "id": "Language",
+      "value": "vi-VN",
+      "ready": true
+    },
+    {
+      "id": "Site_Name",
+      "value": "Chat Miracle",
+      "ready": true
+    },
+    {
+      "id": "Accounts_OAuth_Custom_Keycloak_button_label_text",
+      "value": "Đăng nhập bằng Keycloak",
+      "ready": true
+    },
+    {
+      "id": "Layout_Home_Title",
+      "value": "Chat Miracle",
+      "ready": true
+    },
+    {
+      "id": "Message_DateFormat",
+      "value": "DD/MM/YYYY",
+      "ready": true
+    },
+    {
+      "id": "Message_TimeFormat",
+      "value": "HH:mm",
+      "ready": true
+    },
+    {
+      "id": "Offline_DM_Email",
+      "value": "[[Site_Name]] Bạn có tin nhắn trực tiếp mới từ [User]",
+      "ready": true
+    },
+    {
+      "id": "Forgot_Password_Email_Subject",
+      "value": "[Site_Name] - Đặt lại mật khẩu",
+      "ready": true
+    },
+    {
+      "id": "Forgot_Password_Email",
+      "value": "<p>Nhấn <a href=\"[Forgot_Password_Url]\">vào đây</a> để đặt lại mật khẩu.</p>",
+      "ready": true
+    },
+    {
+      "id": "Layout_Login_Terms",
+      "value": null,
+      "ready": false,
+      "reason": "Phòng CNTT/pháp chế cần duyệt nội dung điều khoản."
+    },
+    {
+      "id": "Layout_Home_Body",
+      "value": null,
+      "ready": false,
+      "reason": "Cần nội dung trang chủ được PO duyệt."
+    },
+    {
+      "id": "Email_Header",
+      "value": null,
+      "ready": false,
+      "reason": "Không được ghi rỗng vì sẽ phá khung HTML email; cần template thương hiệu hoàn chỉnh."
+    },
+    {
+      "id": "Email_Footer",
+      "value": null,
+      "ready": false,
+      "reason": "Không được ghi rỗng vì sẽ phá khung HTML email; cần template thương hiệu hoàn chỉnh."
+    }
+  ]
+}

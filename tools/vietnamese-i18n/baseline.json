@@ -1,0 +1,7 @@
+{
+  "rocket_chat_ref": "8.9.0",
+  "english_resource": "packages/i18n/src/locales/en.i18n.json",
+  "vietnamese_resource": "packages/i18n/src/locales/vi-VN.i18n.json",
+  "custom_translation": "build/vietnamese-i18n/MRC_RC_Custom-Translations_vi-VN.json",
+  "note": "Đổi baseline chỉ trong một PR có kèm báo cáo VH-10."
+}

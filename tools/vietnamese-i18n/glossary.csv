@@ -1,0 +1,37 @@
+English,Vietnamese,Note,Approval
+Workspace,Không gian làm việc,Toàn bộ máy chủ Chat Miracle,Pending
+Room,Phòng,"Tên gọi chung cho kênh, nhóm, thảo luận và tin nhắn trực tiếp",Pending
+Channel (public),Kênh công khai,Ai trong MRC cũng tìm thấy và tham gia được,Pending
+Private channel / Group,Kênh riêng tư,"Chỉ người được mời mới thấy; không dùng Nhóm để tránh trùng Team",Pending
+Team,Nhóm,Ứng với phòng ban; không dùng Đội,Pending
+Discussion,Thảo luận,Phòng con tách ra từ một kênh,Pending
+Thread,Luồng,Chuỗi trả lời gắn với một tin nhắn; tránh Chủ đề,Pending
+Topic,Chủ đề,Dòng chủ đề của phòng,Pending
+Direct message (DM),Tin nhắn trực tiếp,Không dùng tin nhắn riêng,Pending
+Message,Tin nhắn,Không dùng Thông điệp,Pending
+Mention,Nhắc / lượt nhắc,Ví dụ Nhắc đến bạn,Pending
+Reaction,Bày tỏ cảm xúc,,Pending
+Emoji,Biểu tượng cảm xúc,,Pending
+Pin / Unpin,Ghim / Bỏ ghim,,Pending
+Star,Gắn sao,,Pending
+Follow,Theo dõi,,Pending
+Owner,Chủ sở hữu,Vai trò trong phòng,Pending
+Moderator,Người điều phối,Vai trò trong phòng,Pending
+Leader,Trưởng nhóm,Vai trò trong phòng,Pending
+Admin,Quản trị viên,,Pending
+User,Người dùng,,Pending
+Member,Thành viên,,Pending
+Directory,Danh bạ,"Trang tra cứu người, kênh, nhóm",Pending
+Archive,Lưu trữ,,Pending
+Read receipts,Xác nhận đã đọc,,Pending
+File / Upload,Tệp / Tải lên,Không dùng tập tin,Pending
+Delete / Remove,Xoá / Gỡ,Thống nhất chính tả oá,Pending
+Cancel,Huỷ,Viết hoa chữ đầu và thống nhất chính tả uỷ,Pending
+Sign in / Log in,Đăng nhập,,Pending
+Log out,Đăng xuất,,Pending
+Two-factor authentication,Xác thực hai lớp,Thống nhất với SRS SSO,Pending
+Personal access token,Mã truy cập cá nhân,,Pending
+Status,Trạng thái,Online Trực tuyến; Away Vắng mặt; Busy Bận; Invisible Ẩn,Pending
+Call / Video call,Gọi / Gọi video,,Pending
+Category (sidebar),Nhóm hiển thị,Nhóm phòng trên thanh bên; khác Team,Pending
+Sidebar,Thanh bên,,Pending

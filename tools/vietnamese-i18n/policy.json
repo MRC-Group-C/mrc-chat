@@ -1,0 +1,16 @@
+{
+  "banned_terms": {
+    "Thông điệp": "Tin nhắn",
+    "tập tin": "tệp",
+    "Đội": "Nhóm",
+    "Hủy bỏ": "Huỷ",
+    "Xóa bỏ": "Xoá",
+    "Vô hình": "Ẩn"
+  },
+  "banned_term_allowlist": {
+    "Đội": []
+  },
+  "length_ratio": 2.0,
+  "length_min_source": 4,
+  "length_min_target": 16
+}
