@@ -1,0 +1,44 @@
+# =============================================================================
+# MRC-CHAT SOLUTION .GITIGNORE
+# Location: mrc/.gitignore
+# Purpose: Prevent committing secrets, runtime state, and local artifacts
+# =============================================================================
+
+# Environment files containing secrets
+.env
+.env.local
+.env.*.local
+*.env
+
+# Runtime data & volumes
+data/
+logs/
+*.log
+
+# Backup archives & dumps
+backups/
+*.tar.gz
+*.archive.gz
+*.dump
+
+# Python cache & virtual environments
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.coverage
+htmlcov/
+*.egg-info/
+.venv/
+env/
+venv/
+
+# OS and Editor metadata
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*~
+
+translations_cache.json

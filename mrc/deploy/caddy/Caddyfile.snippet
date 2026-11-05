@@ -1,0 +1,68 @@
+# =============================================================================
+# MRC-CHAT CADDY REVERSE PROXY CONFIGURATION
+# Domain: chat.miraclegroup.vn
+# Location: mrc/deploy/caddy/Caddyfile.snippet
+# =============================================================================
+
+chat.miraclegroup.vn {
+    # -------------------------------------------------------------------------
+    # 1. TIÊU ĐỀ BẢO MẬT NÂNG CAO (SECURITY HEADERS)
+    # -------------------------------------------------------------------------
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "SAMEORIGIN"
+        Referrer-Policy "strict-origin-when-cross-origin"
+        Permissions-Policy "camera=(self), microphone=(self), display-capture=(self), geolocation=()"
+        -Server
+    }
+
+    # -------------------------------------------------------------------------
+    # 2. GIỚI HẠN TRUY CẬP TRANG QUẢN TRỊ (SEC-CHT-06)
+    # Chỉ cho phép dải IP nội bộ văn phòng, VPN hoặc localhost truy cập /admin
+    # Sử dụng path_regexp (?i) để khớp không phân biệt hoa thường (/admin, /Admin, /ADMIN)
+    # -------------------------------------------------------------------------
+    @admin_restricted {
+        path_regexp (?i)^/admin
+        not remote_ip 127.0.0.1 ::1 10.0.0.0/8 172.16.0.0/12 192.168.0.0/16
+    }
+    respond @admin_restricted "Access Denied: Administrative interface is restricted to internal corporate networks." 403
+
+    # -------------------------------------------------------------------------
+    # 3. KÍCH THƯỚC TỆP ĐÍNH KÈM & BODY LIMIT
+    # Cho phép tải tệp tin và ảnh lên đến 100MB
+    # -------------------------------------------------------------------------
+    request_body {
+        max_size 100MB
+    }
+
+    # -------------------------------------------------------------------------
+    # 4. CHUYỂN TIẾP NGƯỢC (REVERSE PROXY) TỚI ROCKET.CHAT CONTAINER
+    # Ghi chú: Caddy v2 tự động chuyển tiếp tiêu đề Upgrade cho WebSocket
+    # -------------------------------------------------------------------------
+    reverse_proxy 127.0.0.1:3000 {
+        header_up Host {host}
+        header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-For {remote_host}
+        header_up X-Forwarded-Proto https
+
+        # Cấu hình timeout cho kết nối WebSocket thời gian thực (DDP protocol)
+        transport http {
+            dial_timeout 10s
+            response_header_timeout 120s
+            read_buffer 4096
+        }
+    }
+
+    # -------------------------------------------------------------------------
+    # 5. GHI NHẬT KÝ TRUY CẬP (ACCESS LOGGING)
+    # -------------------------------------------------------------------------
+    log {
+        output file /var/log/caddy/chat_miraclegroup_access.log {
+            roll_size 50mb
+            roll_keep 10
+            roll_keep_for 30d
+        }
+        format json
+    }
+}

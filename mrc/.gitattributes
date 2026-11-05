@@ -1,0 +1,4 @@
+# Every text file under mrc/ uses LF: shell scripts break on Linux with CRLF.
+* text=auto eol=lf
+*.sh text eol=lf
+*.xlsx binary

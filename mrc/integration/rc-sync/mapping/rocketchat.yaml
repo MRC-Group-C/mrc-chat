@@ -1,0 +1,54 @@
+# Keycloak -> Rocket.Chat mapping rules (MRC-CHT-HD-01 section 13.8).
+# Change rules here and re-run the tests; do not change the engine.
+#
+# Differences from the sample in the guide:
+# - "derive" names a function in mapping.py instead of an "expr" string, so this
+#   file can never execute code.
+# - rc-auditor maps to null: Community cannot create the mrc-auditor custom role.
+version: 1
+target: rocketchat
+key:
+  source: sub
+  target: services.keycloak.id
+  crosswalk: iam.rc_link
+fields:
+  username:                                                    # MAP-02, MAP-07
+    from: username
+    transform: [nfc, assert_canonical_username]
+    owner: keycloak
+  name:                                                        # MAP-03
+    from: attributes.full_name
+    fallback: "{{lastName}} {{firstName}}"
+    transform: [nfc, collapse_spaces]
+    owner: keycloak
+  email:                                                       # MAP-05, MAP-06
+    from: email
+    transform: [strip, lower]
+    when_missing: "{{username}}@noemail.miraclegroup.vn"
+    owner: keycloak
+  verified: { derive: email_verified, owner: keycloak }        # MAP-05, MAP-06
+  active: { derive: active, owner: keycloak }                  # MAP-09
+  roles:                                                       # MAP-10, MAP-12
+    base: [user]
+    from: client_roles
+    lookup: { rc-admin: admin, rc-auditor: null }
+    owner: keycloak
+  customFields.employee_id: { from: attributes.employee_id, default: "", owner: keycloak }  # MAP-15
+  customFields.org_unit:                                       # MAP-16
+    from: attributes.org_unit_code
+    lookup_table: org_unit_name
+    default: ""
+    owner: keycloak
+  customFields.job_title: { from: attributes.job_title, default: "", owner: keycloak }      # MAP-16
+  preferences.language:                                        # MAP-14
+    from: attributes.locale
+    lookup: { vi: vi-VN, km: km, en: en }
+    default: vi-VN
+    write: on_create_or_untouched
+    owner: user
+memberships:                                                   # MAP-11
+  source: groups
+  prefix: /org/
+  map_table: iam.rc_org_map
+skip_if:                                                       # MAP-10
+  attributes.account_type: [service]

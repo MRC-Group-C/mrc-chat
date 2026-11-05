@@ -1,0 +1,37 @@
+# =============================================================================
+# MRC-CHAT DEBEZIUM SERVER (T-612)
+# Location: mrc/deploy/compose.debezium.yaml
+# Purpose: Streams CRM HR changes to iam-sync. Kept apart from compose.yaml
+#          because it joins the network shared by the CRM database and iam-sync.
+# Usage:   docker compose --env-file mrc/deploy/.env \
+#            -f mrc/deploy/compose.debezium.yaml up -d
+# =============================================================================
+
+name: mrc-chat-cdc
+
+services:
+  debezium-crm:
+    image: quay.io/debezium/server:3.7.0.Final
+    container_name: mrc_chat_debezium
+    restart: unless-stopped
+    environment:
+      - CRM_DB_HOST=${CRM_DB_HOST:?Set CRM_DB_HOST in mrc/deploy/.env}
+      - CRM_DB_NAME=${CRM_DB_NAME:?Set CRM_DB_NAME in mrc/deploy/.env}
+      - DBZ_CRM_PASSWORD=${DBZ_CRM_PASSWORD:?Set DBZ_CRM_PASSWORD in mrc/deploy/.env}
+      - DBZ_WEBHOOK_SECRET=${DBZ_WEBHOOK_SECRET:?Set DBZ_WEBHOOK_SECRET in mrc/deploy/.env}
+      - IAM_SYNC_CDC_URL=${IAM_SYNC_CDC_URL:?Set IAM_SYNC_CDC_URL in mrc/deploy/.env}
+    volumes:
+      - ../infrastructure/debezium/conf:/debezium/config:ro
+      - debezium_data:/debezium/data
+    networks:
+      - cdc
+    mem_limit: 512m
+
+volumes:
+  debezium_data:
+    name: mrc_chat_debezium_data
+
+networks:
+  cdc:
+    external: true
+    name: ${CDC_DOCKER_NETWORK:?Set CDC_DOCKER_NETWORK in mrc/deploy/.env}

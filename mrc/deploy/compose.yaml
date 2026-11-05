@@ -1,0 +1,159 @@
+# =============================================================================
+# MRC-CHAT DOCKER COMPOSE CONFIGURATION (Phase 1 / T-601)
+# Services: MongoDB 8.0 RS (rs0) + Mongo Replica Set Init + Rocket.Chat 8.9.0 LTS
+# Location: mrc/deploy/compose.yaml
+# =============================================================================
+
+name: mrc-chat
+
+services:
+  # ---------------------------------------------------------------------------
+  # 1. Cơ sở dữ liệu MongoDB 8.0 Community Replica Set (rs0)
+  # ---------------------------------------------------------------------------
+  mongodb:
+    image: mongodb/mongodb-community-server:8.0-ubi8
+    container_name: mrc_chat_mongodb
+    restart: always
+    command: ["mongod", "--replSet", "rs0", "--bind_ip_all", "--oplogSize", "2048"]
+    ports:
+      - "127.0.0.1:27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+      - mongodb_config:/data/configdb
+    environment:
+      - TZ=Asia/Ho_Chi_Minh
+    networks:
+      - mrc_chat_network
+    healthcheck:
+      test: ["CMD-SHELL", "mongosh --port 27017 --eval \"db.adminCommand('ping')\" --quiet || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  # ---------------------------------------------------------------------------
+  # 2. Service khởi tạo tự động Replica Set rs0 (Chạy 1 lần, Idempotent)
+  # ---------------------------------------------------------------------------
+  mongo-init-replica:
+    image: mongodb/mongodb-community-server:8.0-ubi8
+    container_name: mrc_chat_mongo_init
+    restart: "no"
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    volumes:
+      - ../infrastructure/mongodb/init-replica.sh:/init-replica.sh:ro
+    entrypoint: ["/bin/bash", "/init-replica.sh"]
+    environment:
+      - MONGO_HOST=mongodb
+      - MONGO_PORT=27017
+      - MONGO_REPLICA_SET_NAME=rs0
+    networks:
+      - mrc_chat_network
+
+  # ---------------------------------------------------------------------------
+  # 3. Ứng dụng Rocket.Chat 8.9.0 LTS Community Edition
+  # ---------------------------------------------------------------------------
+  rocketchat:
+    image: registry.rocket.chat/rocketchat/rocket.chat:8.9.0
+    container_name: mrc_chat_rocketchat
+    restart: unless-stopped
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      mongo-init-replica:
+        condition: service_completed_successfully
+    ports:
+      - "127.0.0.1:3000:3000"
+    volumes:
+      - rocketchat_uploads:/app/uploads
+    environment:
+      - TZ=Asia/Ho_Chi_Minh
+      - PORT=3000
+      - ROOT_URL=${ROOT_URL:-https://chat.miraclegroup.vn}
+      - MONGO_URL=${MONGO_URL:-mongodb://mongodb:27017/rocketchat?replicaSet=rs0}
+      - MONGO_OPLOG_URL=${MONGO_OPLOG_URL:-mongodb://mongodb:27017/local?replicaSet=rs0}
+      - DEPLOY_METHOD=docker
+      - DEPLOY_PLATFORM=compose
+
+      # Khởi tạo quản trị viên cục bộ (Cold Boot Seed)
+      - INITIAL_USER=yes
+      - ADMIN_USERNAME=${INITIAL_USER_USERNAME:-${ADM_LOCAL_USERNAME:-adm-local-chat}}
+      - ADMIN_NAME=Admin Rescue
+      - ADMIN_EMAIL=${INITIAL_USER_EMAIL:-${ADM_LOCAL_EMAIL:-it-admin-rescue@miraclegroup.vn}}
+      - ADMIN_PASS=${INITIAL_USER_PASSWORD:-${ADM_LOCAL_PASSWORD:?Set ADM_LOCAL_PASSWORD in mrc/deploy/.env}}
+      - INITIAL_USER_USERNAME=${INITIAL_USER_USERNAME:-${ADM_LOCAL_USERNAME:-adm-local-chat}}
+      - INITIAL_USER_PASSWORD=${INITIAL_USER_PASSWORD:-${ADM_LOCAL_PASSWORD:?Set ADM_LOCAL_PASSWORD in mrc/deploy/.env}}
+      - INITIAL_USER_EMAIL=${INITIAL_USER_EMAIL:-${ADM_LOCAL_EMAIL:-it-admin-rescue@miraclegroup.vn}}
+      - OVERWRITE_SETTING_Show_Setup_Wizard=completed
+
+      # Thiết lập hệ thống (Phụ lục A MRC-CHT-HD-01)
+      - OVERWRITE_SETTING_Site_Name=${SITE_NAME:-Chat Miracle}
+      - OVERWRITE_SETTING_Language=vi-VN
+      - OVERWRITE_SETTING_Layout_Login_Terms=Hệ thống Chat Doanh nghiệp MRC - Sử dụng tài khoản định danh Miracle SSO để đăng nhập.
+      - OVERWRITE_SETTING_Message_DateFormat=DD/MM/YYYY
+      - OVERWRITE_SETTING_Message_TimeFormat=HH:mm
+
+      # Khóa an toàn người dùng & Biểu mẫu (Mục 10.3)
+      - OVERWRITE_SETTING_Accounts_RegistrationForm=Disabled
+      - OVERWRITE_SETTING_Accounts_ShowFormLogin=false
+      - OVERWRITE_SETTING_Accounts_AllowRealNameChange=false
+      - OVERWRITE_SETTING_Accounts_AllowUsernameChange=false
+      - OVERWRITE_SETTING_Accounts_AllowEmailChange=false
+      - OVERWRITE_SETTING_Accounts_AllowPasswordChange=false
+      - OVERWRITE_SETTING_Accounts_AllowPasswordChangeForOAuthUsers=false
+      - OVERWRITE_SETTING_Accounts_AllowDeleteOwnAccount=false
+      - OVERWRITE_SETTING_Accounts_AllowUserAvatarChange=true
+      - OVERWRITE_SETTING_Accounts_TwoFactorAuthentication_Enabled=false
+      - OVERWRITE_SETTING_Accounts_LoginExpiration=1
+      - OVERWRITE_SETTING_Accounts_AllowAnonymousRead=false
+      - OVERWRITE_SETTING_Accounts_ManuallyApproveNewUsers=false
+      - OVERWRITE_SETTING_UTF8_User_Names_Validation=[0-9a-zA-Z-_.]+
+      - OVERWRITE_SETTING_API_Enable_Rate_Limiter=true
+      # Trường hồ sơ MAP-15, MAP-16 (giá trị một dòng, phải khớp DEFAULT_CUSTOM_FIELDS trong setup_sso.py)
+      - 'OVERWRITE_SETTING_Accounts_CustomFields={"employee_id":{"type":"text","required":false,"minLength":0,"maxLength":20,"public":true,"private":false,"modifyRecordField":false,"label":"Mã nhân viên"},"org_unit":{"type":"text","required":false,"maxLength":120,"public":true,"private":false,"label":"Đơn vị"},"job_title":{"type":"text","required":false,"maxLength":120,"public":true,"private":false,"label":"Chức danh"}}'
+
+      # Custom OAuth Keycloak (Mục 10.2)
+      - Accounts_OAuth_Custom_Keycloak=true
+      - Accounts_OAuth_Custom_Keycloak_url=${KC_AUTH_URL:-https://sso.miraclegroup.vn/realms/mrc/protocol}
+      - Accounts_OAuth_Custom_Keycloak_token_path=${KC_TOKEN_PATH:-/openid-connect/token}
+      - Accounts_OAuth_Custom_Keycloak_identity_path=${KC_IDENTITY_PATH:-/openid-connect/userinfo}
+      - Accounts_OAuth_Custom_Keycloak_authorize_path=/openid-connect/auth
+      - Accounts_OAuth_Custom_Keycloak_scope=openid profile email
+      - Accounts_OAuth_Custom_Keycloak_token_sent_via=header
+      - Accounts_OAuth_Custom_Keycloak_identity_token_sent_via=header
+      - Accounts_OAuth_Custom_Keycloak_access_token_param=access_token
+      - Accounts_OAuth_Custom_Keycloak_id=${KC_CLIENT_ID:-chat-miracle}
+      - Accounts_OAuth_Custom_Keycloak_secret=${KC_CLIENT_SECRET:?Set KC_CLIENT_SECRET in mrc/deploy/.env}
+      - Accounts_OAuth_Custom_Keycloak_login_style=redirect
+      - Accounts_OAuth_Custom_Keycloak_button_label_text=Đăng nhập bằng tài khoản MRC
+      - Accounts_OAuth_Custom_Keycloak_button_color=#0052cc
+      - Accounts_OAuth_Custom_Keycloak_button_label_color=#ffffff
+      - Accounts_OAuth_Custom_Keycloak_key_field=username
+      - Accounts_OAuth_Custom_Keycloak_username_field=preferred_username
+      - Accounts_OAuth_Custom_Keycloak_email_field=email
+      - Accounts_OAuth_Custom_Keycloak_name_field=display_name
+      - Accounts_OAuth_Custom_Keycloak_merge_users=true
+      - Accounts_OAuth_Custom_Keycloak_merge_users_distinct_services=true
+      - Accounts_OAuth_Custom_Keycloak_show_button=true
+    networks:
+      - mrc_chat_network
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://127.0.0.1:3000/livez || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+
+volumes:
+  mongodb_data:
+    name: mrc_chat_mongodb_data
+  mongodb_config:
+    name: mrc_chat_mongodb_config
+  rocketchat_uploads:
+    name: mrc_chat_uploads_data
+
+networks:
+  mrc_chat_network:
+    name: mrc-chat-net
+    driver: bridge

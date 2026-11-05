@@ -1,0 +1,20 @@
+# =============================================================================
+# MRC-CHAT LOCAL DEVELOPMENT OVERRIDE
+# Location: mrc/deploy/compose.dev.yaml
+# Purpose: Lets the Rocket.Chat container reach a Keycloak running on the host
+#          through the same localhost:8080 address the browser uses.
+# Usage:   docker compose --env-file mrc/deploy/.env \
+#            -f mrc/deploy/compose.yaml -f mrc/deploy/compose.dev.yaml up -d
+# Never use this file on staging or production.
+# =============================================================================
+
+services:
+  rocketchat:
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        node -e "const net=require('net');const server=net.createServer(s=>{const c=net.createConnection(8080,'host.docker.internal',()=>s.pipe(c).pipe(s));c.on('error',()=>s.destroy());s.on('error',()=>c.destroy());});server.listen(8080,'127.0.0.1');" &
+        exec docker-entrypoint.sh node main.js
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
