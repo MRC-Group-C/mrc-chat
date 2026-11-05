@@ -1,5 +1,10 @@
+"""Local-development helper: write Custom_Translations straight into a Dockerised MongoDB.
+
+Staging and production load translations through the REST `upload` command instead.
+"""
 import importlib.util
 import json
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -30,7 +35,7 @@ if exit_code:
     print(f"Update Mongo blocked by K1-K8: {payload['errors']} errors, {payload['warnings']} warnings", file=sys.stderr)
     sys.exit(1)
 
-compact_json = json.dumps(raw_data, ensure_ascii=False)
+compact_json = json.dumps({gen_vi.LOCALE: gen_vi.runtime_translation(translation)}, ensure_ascii=False, separators=(",", ":"))
 
 mongo_script = """
 db.rocketchat_settings.updateOne(
@@ -56,7 +61,7 @@ print('Updated Custom_Translations with public: true');
 """ % json.dumps(compact_json)
 
 p = subprocess.run(
-    ['docker', 'exec', '-i', 'mrc-chat-mongo', 'mongosh', 'rocketchat', '--quiet'],
+    ['docker', 'exec', '-i', os.environ.get('MRC_MONGO_CONTAINER', 'mrc-chat-mongo'), 'mongosh', 'rocketchat', '--quiet'],
     input=mongo_script,
     text=True,
     capture_output=True,

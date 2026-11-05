@@ -117,4 +117,8 @@ Không commit file `.env`, token hoặc backup setting.
 
 ## Phạm vi cấu hình
 
+Nút «Đăng nhập bằng tài khoản MRC» chỉ hiện khi dịch vụ Custom OAuth tên `Keycloak` đã được tạo và bật (T-603). Setting `Accounts_OAuth_Custom-Keycloak-button_label_text` trong file bên dưới không tự tạo dịch vụ đó; nạp nó khi dịch vụ chưa có thì không có nút nào xuất hiện.
+
+Ngôn ngữ trang đăng nhập do trình duyệt quyết định: client chọn `ngôn ngữ trình duyệt` trước setting `Language`. Trình duyệt English vì vậy luôn thấy trang đăng nhập tiếng Anh; chỉ sau khi đăng nhập, ngôn ngữ trong hồ sơ người dùng (do `iam-sync` gán `vi-VN`) mới áp dụng. Phần Việt hoá của trang đăng nhập là `Layout_Login_Terms` và nhãn nút SSO.
+
 `deployment-settings.example.json` là bản đề xuất để người vận hành duyệt. Giá trị rỗng bắt buộc phải được biên tập trước khi nạp. Không dùng file này làm payload tự động và không đưa credential vào repository.

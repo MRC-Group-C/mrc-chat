@@ -1,11 +1,24 @@
+"""Local-development helper: compare the tracked artifact with Custom_Translations in a Dockerised MongoDB."""
+import importlib.util
 import json
+import os
+from pathlib import Path
 import subprocess
+import sys
+
+MODULE_PATH = Path(__file__).parent / "gen_vi.py"
+SPEC = importlib.util.spec_from_file_location("gen_vi", MODULE_PATH)
+gen_vi = importlib.util.module_from_spec(SPEC)
+assert SPEC.loader is not None
+sys.modules[SPEC.name] = gen_vi
+SPEC.loader.exec_module(gen_vi)
 
 with open('tools/vietnamese-i18n/translations/MRC_RC_Custom-Translations_vi-VN.json', 'r', encoding='utf-8') as f:
-    file_data = json.load(f)['vi-VN']
+    # Mongo holds the flat runtime shape, so compare against that rather than the nested plural form.
+    file_data = gen_vi.runtime_translation(json.load(f)['vi-VN'])
 
 res = subprocess.run(
-    ['docker', 'exec', '-i', 'mrc-chat-mongo', 'mongosh', 'rocketchat', '--quiet', '--eval', 'db.rocketchat_settings.findOne({_id: "Custom_Translations"}).value'],
+    ['docker', 'exec', '-i', os.environ.get('MRC_MONGO_CONTAINER', 'mrc-chat-mongo'), 'mongosh', 'rocketchat', '--quiet', '--eval', 'db.rocketchat_settings.findOne({_id: "Custom_Translations"}).value'],
     capture_output=True,
     text=True,
     encoding='utf-8'

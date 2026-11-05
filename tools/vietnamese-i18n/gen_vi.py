@@ -546,6 +546,19 @@ def _request_json(method, url, headers, body=None):
     return _decode_json(raw, url)[0]
 
 
+def runtime_translation(translation):
+    """Return the translation in the flat shape the client loads, where each plural
+    variant is its own `<key>_<category>` entry instead of a nested object."""
+    flat = {}
+    for key, value in translation.items():
+        if isinstance(value, dict) and set(value) & PLURAL_KEYS:
+            for category, text in value.items():
+                flat[f"{key}_{category}"] = text
+        else:
+            flat[key] = value
+    return dict(sorted(flat.items()))
+
+
 def run_upload(args):
     source = load_resource(args)
     wrapped = load_json_file(args.translation)
@@ -563,7 +576,7 @@ def run_upload(args):
     current = _request_json("GET", endpoint, headers)
     backup_path = Path(args.backup_dir) / f"Custom_Translations-{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}.json"
     write_json(backup_path, current)
-    setting_value = json.dumps({LOCALE: dict(sorted(translation.items()))}, ensure_ascii=False, separators=(",", ":"))
+    setting_value = json.dumps({LOCALE: runtime_translation(translation)}, ensure_ascii=False, separators=(",", ":"))
     response = _request_json("POST", endpoint, headers, {"value": setting_value})
     if response.get("success") is not True:
         raise InputError(f"Rocket.Chat did not confirm success: {response}")
@@ -592,7 +605,7 @@ def run_export_env(args):
         payload = report_payload(findings, len(source), len(translation))
         print(f"export-env blocked by K1-K8: {payload['errors']} errors, {payload['warnings']} warnings", file=sys.stderr)
         return 1
-    compact = json.dumps({LOCALE: dict(sorted(translation.items()))}, ensure_ascii=False, separators=(",", ":"))
+    compact = json.dumps({LOCALE: runtime_translation(translation)}, ensure_ascii=False, separators=(",", ":"))
     escaped = compact.replace("'", "\\'")
     Path(args.output).parent.mkdir(parents=True, exist_ok=True)
     Path(args.output).write_text(f"OVERWRITE_SETTING_Custom_Translations='{escaped}'\n", encoding="utf-8", newline="\n")

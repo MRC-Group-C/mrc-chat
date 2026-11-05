@@ -125,6 +125,55 @@ class JsonAndUploadTests(unittest.TestCase):
             self.assertEqual(result, 1)
             request.assert_not_called()
 
+    def test_runtime_translation_flattens_plural_variants(self):
+        translation = {
+            "Count_results": {"other": "{{count}} kết quả"},
+            "Hello": "Xin chào",
+        }
+        self.assertEqual(
+            gen_vi.runtime_translation(translation),
+            {"Count_results_other": "{{count}} kết quả", "Hello": "Xin chào"},
+        )
+
+    def test_upload_sends_flattened_plural_keys(self):
+        with tempfile.TemporaryDirectory() as directory:
+            directory = Path(directory)
+            source_path = directory / "en.json"
+            translation_path = directory / "vi.json"
+            source_path.write_text(
+                json.dumps({"Count_results": {"one": "{{count}} result", "other": "{{count}} results"}}),
+                encoding="utf-8",
+            )
+            translation_path.write_text(
+                json.dumps({"vi-VN": {"Count_results": {"other": "{{count}} kết quả"}}}),
+                encoding="utf-8",
+            )
+            expected = json.dumps(
+                {"vi-VN": {"Count_results_other": "{{count}} kết quả"}}, ensure_ascii=False, separators=(",", ":")
+            )
+            with patch.dict("os.environ", {"RC_USER_ID": "u", "RC_AUTH_TOKEN": "t"}), patch.object(
+                gen_vi, "_request_json", side_effect=[{"value": ""}, {"success": True}, {"value": expected}]
+            ) as request:
+                result = gen_vi.main([
+                    "upload",
+                    "--source", str(source_path),
+                    "--translation", str(translation_path),
+                    "--url", "https://chat.example.test",
+                    "--backup-dir", str(directory),
+                    "--apply",
+                ])
+            self.assertEqual(result, 0)
+            self.assertEqual(request.call_args_list[1].args[3], {"value": expected})
+
+    def test_deployment_settings_use_real_custom_oauth_ids(self):
+        path = Path(__file__).parents[1] / "deployment-settings.example.json"
+        ids = [item["id"] for item in json.loads(path.read_text(encoding="utf-8"))["settings"]]
+        for setting_id in ids:
+            if setting_id.startswith("Accounts_OAuth_Custom"):
+                # Rocket.Chat names custom OAuth settings `Accounts_OAuth_Custom-<Name>-<field>`;
+                # any other spelling creates an orphan setting that never shows a login button.
+                self.assertRegex(setting_id, r"^Accounts_OAuth_Custom-[^_-]+-[a-z_]+$")
+
     def test_export_env_is_blocked_on_validation_error(self):
         with tempfile.TemporaryDirectory() as directory:
             directory = Path(directory)
