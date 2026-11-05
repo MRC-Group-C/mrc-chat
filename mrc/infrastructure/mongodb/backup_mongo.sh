@@ -11,7 +11,8 @@ MONGO_HOST="${MONGO_HOST:-127.0.0.1}"
 MONGO_PORT="${MONGO_PORT:-27017}"
 MONGO_DB="${MONGO_DB:-rocketchat}"
 BACKUP_DIR="${BACKUP_DIR:-/backup/mongodb}"
-RETENTION_DAYS="${RETENTION_DAYS:-7}"
+RETENTION_DAYS="${RETENTION_DAYS:-14}"
+REMOTE_BACKUP_DEST="${REMOTE_BACKUP_DEST:-}"
 
 TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
 BACKUP_FILENAME="mrc_chat_backup_${TIMESTAMP}.archive.gz"
@@ -56,7 +57,24 @@ else
     exit 1
 fi
 
-# Tự động dọn dẹp các bản sao lưu cũ vượt quá RETENTION_DAYS
+# Đẩy bản sao lưu ra đích ngoài máy chủ (Off-host backup) nếu được khai báo
+if [ -n "${REMOTE_BACKUP_DEST}" ]; then
+    echo ">>> [backup_mongo] Đang chuyển bản sao lưu ra ngoài máy chủ: ${REMOTE_BACKUP_DEST}..."
+    if command -v rsync >/dev/null 2>&1; then
+        rsync -avz "${BACKUP_PATH}" "${REMOTE_BACKUP_DEST}/"
+        echo ">>> [backup_mongo] Đẩy ra máy chủ ngoài qua rsync THÀNH CÔNG."
+    elif command -v rclone >/dev/null 2>&1; then
+        rclone copy "${BACKUP_PATH}" "${REMOTE_BACKUP_DEST}"
+        echo ">>> [backup_mongo] Đẩy ra cloud/S3 qua rclone THÀNH CÔNG."
+    elif command -v scp >/dev/null 2>&1; then
+        scp -q "${BACKUP_PATH}" "${REMOTE_BACKUP_DEST}/"
+        echo ">>> [backup_mongo] Đẩy ra máy chủ ngoài qua scp THÀNH CÔNG."
+    else
+        echo ">>> [backup_mongo] CẢNH BÁO: Khai báo REMOTE_BACKUP_DEST nhưng máy chủ không có sẵn rsync/rclone/scp!" >&2
+    fi
+fi
+
+# Tự động dọn dẹp các bản sao lưu cũ vượt quá RETENTION_DAYS (mặc định giữ 14 ngày/14 bản)
 echo ">>> [backup_mongo] Kiểm tra dọn dẹp các bản sao lưu cũ hơn ${RETENTION_DAYS} ngày trong ${BACKUP_DIR}..."
 DELETED_COUNT=0
 while IFS= read -r old_file; do

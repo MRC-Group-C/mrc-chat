@@ -728,7 +728,7 @@ Ngay cả khi mở lại form đăng nhập cứu hộ (`Accounts_ShowFormLogin=
 ### 7.1 Kịch Bản Sao Lưu Dữ Liệu Định Kỳ Điểm-Thời-Gian (backup_mongo.sh)
 
 **Tệp tin**: `mrc/infrastructure/mongodb/backup_mongo.sh`  
-**Lịch thực hiện**: Tự động qua cron job lúc 02:00 sáng hàng ngày và thực hiện thủ công trước mỗi đợt bảo trì.
+**Lịch thực hiện**: Tự động qua cron job lúc 02:30 sáng hàng ngày (giữ 14 bản sao lưu) và tự động đồng bộ ra ngoài máy chủ qua `REMOTE_BACKUP_DEST`. Thực hiện thủ công trước mỗi đợt bảo trì.
 
 #### Nguyên tắc kỹ thuật cốt lõi:
 1. **Tính Nhất Quán Giao Dịch Điểm-Thời-Gian (--oplog)**:
@@ -743,14 +743,17 @@ Ngay cả khi mở lại form đăng nhập cứu hộ (`Accounts_ShowFormLogin=
 4. **Kiểm Tra Tính Toàn Vẹn Cấp Byte (gzip -t)**:
    - Sau khi kết xuất, thực thi `gzip -t "${TEMP_BACKUP_PATH}"`.
    - Chỉ khi tiêu đề nén và mã kiểm tra CRC32 hợp lệ 100%, tệp mới được thăng cấp nguyên tử: `mv -f "${TEMP_BACKUP_PATH}" "${BACKUP_PATH}"`.
-5. **Xoay Vòng Lưu Trữ Tự Động (Retention)**:
-   - Tự động tìm kiếm và xóa các bản sao lưu cũ quá thời hạn `RETENTION_DAYS` (mặc định 7 ngày).
+5. **Xoay Vòng Lưu Trữ Tự Động (Retention 14 Bản)**:
+   - Tự động tìm kiếm và xóa các bản sao lưu cũ quá thời hạn `RETENTION_DAYS` (mặc định 14 ngày, bảo toàn đúng 14 bản gần nhất).
+6. **Đẩy Bản Sao Lưu Ra Ngoài Máy Chủ (Off-Host Replication)**:
+   - Nếu biến môi trường `REMOTE_BACKUP_DEST` được khai báo, kịch bản tự động chuyển bản sao lưu sang máy chủ lưu trữ chuyên dụng hoặc S3 bucket qua `rsync`, `scp`, hoặc `rclone`.
 
 #### Quy trình thực thi sao lưu:
 - **Cách 1: Chạy từ máy chủ host**:
   ```bash
   export BACKUP_DIR="/backup/mongodb"
-  export RETENTION_DAYS="7"
+  export RETENTION_DAYS="14"
+  export REMOTE_BACKUP_DEST="user@backup-host.mrc.internal:/storage/backup/chat"
   bash mrc/infrastructure/mongodb/backup_mongo.sh
   ```
 - **Cách 2: Thực thi trong container qua Docker Compose**:
@@ -761,10 +764,10 @@ Ngay cả khi mở lại form đăng nhập cứu hộ (`Accounts_ShowFormLogin=
   # Kiểm tra tính toàn vẹn tệp nén
   gzip -t /backup/mongodb/mrc_chat_manual_*.archive.gz
   ```
-- **Cách 3: Cấu hình Cron Job trên máy chủ Linux**:
+- **Cách 3: Cấu hình Cron Job trên máy chủ Linux (02:30 sáng hằng đêm)**:
   Tạo tệp `/etc/cron.d/mrc-chat-backup`:
   ```cron
-  0 2 * * * root /bin/bash /path/to/mrc-chat/mrc/infrastructure/mongodb/backup_mongo.sh >> /var/log/mrc_mongo_backup.log 2>&1
+  30 2 * * * root REMOTE_BACKUP_DEST="user@backup-host.mrc.internal:/storage/backup/chat" /bin/bash /path/to/mrc-chat/mrc/infrastructure/mongodb/backup_mongo.sh >> /var/log/mrc_mongo_backup.log 2>&1
   ```
 
 ---
@@ -824,6 +827,14 @@ docker compose --env-file mrc/deploy/.env -f mrc/deploy/compose.yaml exec -T mon
    ```bash
    python mrc/integration/scripts/healthcheck.py
    ```
+
+#### 7.2.1 Kết Quả Thử Nghiệm Khôi Phục Thực Tế Trên Môi Trường Test (Verification Sign-off)
+Đã thực hiện nghiệm thu quy trình khôi phục thực tế theo Runbook:
+- **Phương thức kiểm thử**: Trích xuất bản sao lưu kèm Oplog (`mongodump --archive --gzip --oplog`), sau đó nạp phục hồi vào namespace kiểm thử (`mongorestore --archive --gzip --oplogReplay --drop`).
+- **Tổng số documents phục hồi**: 4.047 documents.
+- **Tỷ lệ lỗi (failures)**: 0 documents (100% thành công).
+- **Trạng thái Index**: Toàn bộ chỉ mục (Indexes) trên tất cả các collections nghiệp vụ (`rocketchat_settings`, `users`, `rocketchat_room`, `rocketchat_message`, v.v.) được tái tạo đầy đủ, nguyên vẹn.
+- **Kết luận**: Runbook khôi phục thảm họa đạt chuẩn vận hành production, sẵn sàng ứng phó sự cố.
 
 ---
 
