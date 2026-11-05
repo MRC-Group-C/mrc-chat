@@ -16,7 +16,7 @@ Chạy lại ngày 2026-11-05 trên commit `9db05fd2`, bằng cùng các lệnh 
 | Kiểm tra | Kết quả |
 | --- | --- |
 | `gen_vi.py validate --source-git-ref 8.9.0` | Trước khi sửa: 0 lỗi, 107 cảnh báo (94 K6, 13 K7). **Sau khi ghép bản duyệt: exit 0, 0 lỗi, 97 cảnh báo (97 K6, 0 K7)** |
-| Unit test công cụ | 24/24 đạt |
+| Unit test công cụ | 26/26 đạt |
 | Đối chiếu với starter 229 | Không mất khóa nào; cả 229 giá trị giống hệt starter (đối chiếu trước khi sửa) |
 
 ### Đã sửa trong artifact (chưa commit)
@@ -32,6 +32,7 @@ Chạy lại ngày 2026-11-05 trên commit `9db05fd2`, bằng cùng các lệnh 
 - **Không ghép:** `@username_message` đổi `<message>` thành `<tin nhắn>`, K3 từ chối.
 - **Lỗi người duyệt bỏ sót:** biến mẫu bị dịch hoặc sai tên ở `Accounts_Admin_Email_Approval_Needed_With_Reason_Default`, `Forgot_Password_Description`, `Mailer_body_tags`, `error-missing-unsubscribe-link`, cùng cú pháp `Katex_Parenthesis_Syntax_Description`. Đã sửa. K2 nay kiểm tra biến dạng `[name]`, trước đây không kiểm tra nên `[mật khẩu]` đã lọt qua.
 - **Cách duyệt:** theo xác nhận của Quân ngày 2026-11-05, bản duyệt được làm bằng AI song song với người đọc. VH-04 cho phép máy dịch làm nháp nhưng yêu cầu người đọc lại mọi chuỗi. Người đọc là Quân (dev), đã đọc toàn bộ 2.732 dòng theo xác nhận của Quân.
+- **Sửa lại sau khi test:** bản duyệt đổi `Category` thành «Danh mục» (trái glossary «Nhóm hiển thị») và `offline` về chữ thường; đã trả lại và có test. Đổi thêm 14 chuỗi của thanh bên (`Category_created`, `Delete_category`, `Manage_category`, `Custom_categories`…) sang «Nhóm hiển thị» theo glossary; các chuỗi danh mục của Marketplace giữ «danh mục» vì là khái niệm khác.
 - **Cần quyết định:** thuật ngữ mới của người duyệt chưa có trong `glossary.csv` nên chưa ghi vào đó. Reaction là «thả biểu cảm» (11 bản sửa) trái với «Bày tỏ cảm xúc» đã duyệt; `Add_Reaction`, `Avg_reaction_time`, `Longest_reaction_time` vẫn dùng «phản ứng». Người duyệt cũng nêu cần xem lại P2-393, 718–720, 2067, 2126–2138 và 252-221 trên giao diện thật.
 
 ### Kiểm thử trên localhost:3000 (Rocket.Chat 8.9.0, Docker cục bộ, không phải staging)

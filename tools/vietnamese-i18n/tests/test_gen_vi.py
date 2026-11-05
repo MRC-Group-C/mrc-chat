@@ -210,6 +210,21 @@ class JsonAndUploadTests(unittest.TestCase):
         drafts = self._load_translation("drafts", "P4_out-of-scope_vi-VN.json")
         self.assertEqual(set(artifact) & set(drafts), set())
 
+    def test_artifact_keeps_visible_labels_agreed_in_glossary(self):
+        artifact = self._load_translation("MRC_RC_Custom-Translations_vi-VN.json")
+        self.assertEqual(artifact["Category"], "Nhóm hiển thị")
+        self.assertEqual(
+            [artifact[key] for key in ("online", "away", "busy", "offline")],
+            ["Trực tuyến", "Vắng mặt", "Bận", "Ngoại tuyến"],
+        )
+
+    def test_sidebar_category_strings_use_glossary_term(self):
+        artifact = self._load_translation("MRC_RC_Custom-Translations_vi-VN.json")
+        for key in ("Category_created", "Delete_category", "Manage_category", "Custom_categories", "Sidebar_Sections_Order_Description"):
+            self.assertIn("nhóm hiển thị", artifact[key].lower(), key)
+        # Marketplace filters group apps, which is a different concept from sidebar categories.
+        self.assertEqual(artifact["All_categories"], "Tất cả danh mục")
+
     def test_artifact_uses_new_tone_placement(self):
         # HD-01 VH-04 requires one spelling across the file: xoá, hoá, huỷ.
         old_style = re.compile(r"(?<![a-zà-ỹ])[a-zà-ỹ]*?([óòỏõọ][ae]|[úùủũụ]y)(?![a-zà-ỹ])", re.IGNORECASE)
