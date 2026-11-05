@@ -38,6 +38,15 @@ class ValidationTests(unittest.TestCase):
         self.assertIn("K2", self.rules(source, {"Key": "Xin chào {{user}}, %s có tin nhắn"}))
         self.assertEqual(self.rules(source, {"Key": "Xin chào {{name}}, %s có %d tin nhắn"}), [])
 
+    def test_k2_rejects_translated_template_variables(self):
+        self.assertIn("K2", self.rules({"Hi": "Hi [name]"}, {"Hi": "Xin chào [tên]"}))
+        self.assertIn("K2", self.rules({"Url": "Open [Site_URL]"}, {"Url": "Mở [Site_Url]"}))
+        self.assertEqual(self.rules({"Hi": "Hi [name]"}, {"Hi": "Xin chào [name]"}), [])
+
+    def test_k2_allows_translated_link_text_and_notes(self):
+        self.assertEqual(self.rules({"Doc": "See [here](https://x.test)"}, {"Doc": "Xem [tại đây](https://x.test)"}), [])
+        self.assertEqual(self.rules({"Note": "[Beware] slow"}, {"Note": "[Ghi chú] chậm"}), [])
+
     def test_k3_html_and_react_tags(self):
         source = {"Key": "Open <strong><1>this</1></strong>"}
         self.assertIn("K3", self.rules(source, {"Key": "Mở <strong>nội dung</strong>"}))

@@ -29,6 +29,7 @@ DEFAULT_SOURCE = "packages/i18n/src/locales/en.i18n.json"
 DEFAULT_VI = "packages/i18n/src/locales/vi-VN.i18n.json"
 INTERPOLATION_RE = re.compile(r"\{\{([^{}]+)}}")
 PRINTF_RE = re.compile(r"%(?:\d+\$)?[sdif]")
+BRACKET_TOKEN_RE = re.compile(r"\[(?:[a-z_]+|[A-Z][A-Za-z]*_[A-Za-z_]+)\](?!\()")
 TAG_RE = re.compile(r"<[^<>]+>")
 FIRST_ALPHA_RE = re.compile(r"[^A-Za-zÀ-ỹĐđ]*([A-Za-zÀ-ỹĐđ])")
 PLURAL_KEYS = {"zero", "one", "two", "few", "many", "other"}
@@ -128,6 +129,11 @@ def printf_tokens(value: str):
     return Counter(PRINTF_RE.findall(value.replace("%%", "")))
 
 
+def bracket_tokens(value: str):
+    """Server-side template variables such as [name] or [Site_URL], which must stay untranslated."""
+    return Counter(BRACKET_TOKEN_RE.findall(value))
+
+
 def tag_sequence(value: str) -> list[str]:
     tokens = []
     for match in TAG_RE.findall(value):
@@ -217,6 +223,8 @@ def validate(source, translation, policy):
                 add("K2", "error", label, "{{...}} placeholders differ from the English source")
             if printf_tokens(source_text) != printf_tokens(target_text):
                 add("K2", "error", label, "%s/%d-style placeholders differ from the English source")
+            if bracket_tokens(source_text) != bracket_tokens(target_text):
+                add("K2", "error", label, "[name]-style template variables differ from the English source")
             if tag_sequence(source_text) != tag_sequence(target_text):
                 add("K3", "error", label, "HTML/React tags or their nesting order differ from the English source")
 
