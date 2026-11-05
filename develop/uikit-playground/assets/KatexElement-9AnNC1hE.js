@@ -1,0 +1,1 @@
+import{a as e,c as t,u as n}from"./index-Cjq52R21.js";import{t as r}from"./katex-CQTZOmBb.js";var i=e(),a=n(t()),o=({code:e})=>{let t=(0,a.useMemo)(()=>r.renderToString(e,{displayMode:!1,macros:{"\\href":`\\@secondoftwo`},maxSize:100}),[e]);return(0,i.jsx)(`span`,{dangerouslySetInnerHTML:{__html:t}})};export{o as default};
