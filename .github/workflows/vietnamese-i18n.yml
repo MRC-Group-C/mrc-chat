@@ -1,0 +1,47 @@
+name: Vietnamese i18n
+
+on:
+  pull_request:
+    paths:
+      - 'tools/vietnamese-i18n/**'
+      - '.github/workflows/vietnamese-i18n.yml'
+  push:
+    paths:
+      - 'tools/vietnamese-i18n/**'
+      - '.github/workflows/vietnamese-i18n.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  k1-k8:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Unit tests
+        run: python -m unittest discover tools/vietnamese-i18n/tests -v
+      - name: Validate tracked production artifact when present
+        shell: bash
+        run: |
+          artifact='tools/vietnamese-i18n/translations/MRC_RC_Custom-Translations_vi-VN.json'
+          if [[ -f "$artifact" ]]; then
+            python tools/vietnamese-i18n/gen_vi.py --repo . validate \
+              --source-git-ref 8.9.0 \
+              --translation "$artifact" \
+              --policy tools/vietnamese-i18n/policy.json \
+              --report-json build/vietnamese-i18n/k1-k8.json \
+              --report-md build/vietnamese-i18n/k1-k8.md
+          else
+            echo 'No tracked production artifact yet; unit tests only.'
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: vietnamese-i18n-validation
+          path: build/vietnamese-i18n/
+          if-no-files-found: ignore

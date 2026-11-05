@@ -1,0 +1,70 @@
+{
+  "baseline": "8.9.0",
+  "settings": [
+    {
+      "id": "Language",
+      "value": "vi-VN",
+      "ready": true
+    },
+    {
+      "id": "Site_Name",
+      "value": "Chat Miracle",
+      "ready": true
+    },
+    {
+      "id": "Accounts_OAuth_Custom_Keycloak_button_label_text",
+      "value": "Đăng nhập bằng tài khoản MRC",
+      "ready": true
+    },
+    {
+      "id": "Layout_Home_Title",
+      "value": "Chat Miracle",
+      "ready": true
+    },
+    {
+      "id": "Layout_Home_Body",
+      "value": "<h3>Chào mừng bạn đến với Chat Miracle</h3><p>Nền tảng giao tiếp và trao đổi công việc nội bộ của Công ty MRC.</p><ul><li>Kênh thông báo toàn công ty: <b>#thong-bao-chung</b></li><li>Kênh hỗ trợ kỹ thuật: <b>#ho-tro-cntt</b></li><li>Kênh an toàn bảo mật: <b>#bao-mat-truc</b></li></ul><p>Mọi hỗ trợ xin liên hệ Phòng CNTT qua email <b>cntt@miraclegroup.vn</b>.</p>",
+      "ready": true
+    },
+    {
+      "id": "Layout_Login_Terms",
+      "value": "<p>Bằng việc đăng nhập hệ thống, bạn đồng ý với <a href=\"/terms-of-service\">Điều khoản dịch vụ</a> và <a href=\"/privacy-policy\">Chính sách bảo mật</a> của Công ty MRC.</p>",
+      "ready": true
+    },
+    {
+      "id": "Message_DateFormat",
+      "value": "DD/MM/YYYY",
+      "ready": true
+    },
+    {
+      "id": "Message_TimeFormat",
+      "value": "HH:mm",
+      "ready": true
+    },
+    {
+      "id": "Offline_DM_Email",
+      "value": "[[Site_Name]] Bạn có tin nhắn trực tiếp mới từ [User]",
+      "ready": true
+    },
+    {
+      "id": "Forgot_Password_Email_Subject",
+      "value": "[Site_Name] - Đặt lại mật khẩu",
+      "ready": true
+    },
+    {
+      "id": "Forgot_Password_Email",
+      "value": "<p>Chào [name],</p><p>Bạn hoặc ai đó đã yêu cầu đặt lại mật khẩu cho tài khoản Chat Miracle của bạn.</p><p>Nhấn <a href=\"[Forgot_Password_Url]\">vào đây</a> để đặt lại mật khẩu của bạn.</p><p>Nếu bạn không yêu cầu, vui lòng bỏ qua thư này.</p>",
+      "ready": true
+    },
+    {
+      "id": "Email_Header",
+      "value": "<!DOCTYPE html><html><head><meta charset=\"utf-8\"></head><body style=\"font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #2f343d; line-height: 1.5;\"><div style=\"max-width: 600px; margin: 0 auto; padding: 24px; border: 1px solid #e1e5e8; border-radius: 8px; background-color: #ffffff;\"><div style=\"border-bottom: 2px solid #1d74f5; padding-bottom: 12px; margin-bottom: 20px;\"><h2 style=\"color: #1d74f5; margin: 0; font-size: 20px;\">Chat Miracle · MRC</h2></div>",
+      "ready": true
+    },
+    {
+      "id": "Email_Footer",
+      "value": "<div style=\"border-top: 1px solid #e1e5e8; margin-top: 28px; padding-top: 14px; font-size: 12px; color: #7f8c8d;\"><p style=\"margin: 0 0 6px 0;\">Đây là email thông báo tự động từ hệ thống Chat Miracle của Công ty MRC.</p><p style=\"margin: 0;\">Hỗ trợ kỹ thuật: <b>Phòng CNTT</b> · Email: <a href=\"mailto:cntt@miraclegroup.vn\" style=\"color: #1d74f5;\">cntt@miraclegroup.vn</a></p></div></div></body></html>",
+      "ready": true
+    }
+  ]
+}
