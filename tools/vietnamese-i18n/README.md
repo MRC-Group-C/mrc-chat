@@ -115,10 +115,18 @@ Không commit file `.env`, token hoặc backup setting.
 5. Nạp staging bằng REST. Production chỉ dùng đúng artifact đã qua nghiệm thu.
 6. Khi nâng cấp, tuân thủ nghiêm ngặt [UPGRADE_CHECKLIST.md](UPGRADE_CHECKLIST.md), chạy `upgrade`, loại key đã xoá và key đã được upstream dịch rồi đính kèm báo cáo vào phiếu nâng cấp. Chạy lại TC-VH-01..05 trên staging trước khi lên production.
 
+## Phạm vi bản dịch
+
+HD-01 (VH-04) quy định P4 (Omnichannel, Federation, VoIP) không dịch. Các bản nháp P4 nằm ở `translations/drafts/P4_out-of-scope_vi-VN.json` và không được nạp; muốn đưa nhóm này vào phạm vi thì cần quyết định của PO. Bản dịch dùng cách bỏ dấu kiểu mới (`xoá`, `hoá`, `huỷ`, `tuỳ`).
+
 ## Phạm vi cấu hình
 
-Nút «Đăng nhập bằng tài khoản MRC» chỉ hiện khi dịch vụ Custom OAuth tên `Keycloak` đã được tạo và bật (T-603). Setting `Accounts_OAuth_Custom-Keycloak-button_label_text` trong file bên dưới không tự tạo dịch vụ đó; nạp nó khi dịch vụ chưa có thì không có nút nào xuất hiện.
+`Language`, `Site_Name`, `Layout_Login_Terms`, `Message_DateFormat`, `Message_TimeFormat` và Custom OAuth được khai báo bằng biến môi trường trong `compose.yaml` (HD-01 mục 6.5, 10.2), nên không nằm trong file cấu hình dưới đây.
+
+Nút «Đăng nhập bằng tài khoản MRC» chỉ hiện khi dịch vụ Custom OAuth tên `Keycloak` đã được tạo và bật (T-603). Biến môi trường dùng dạng `Accounts_OAuth_Custom_Keycloak_*`; REST dùng dạng `Accounts_OAuth_Custom-Keycloak-*`.
 
 Ngôn ngữ trang đăng nhập do trình duyệt quyết định: client chọn `ngôn ngữ trình duyệt` trước setting `Language`. Trình duyệt English vì vậy luôn thấy trang đăng nhập tiếng Anh; chỉ sau khi đăng nhập, ngôn ngữ trong hồ sơ người dùng (do `iam-sync` gán `vi-VN`) mới áp dụng. Phần Việt hoá của trang đăng nhập là `Layout_Login_Terms` và nhãn nút SSO.
+
+Huy hiệu vai trò cạnh tên người dùng lấy từ `description` của role, không qua i18n, nên Custom_Translations không đổi được. Danh sách `roles` trong file cấu hình được `upload --deployment-settings --apply` đặt qua `roles.update`. Khi khởi động với phiên bản Rocket.Chat khác, server ghi đè mô tả của `admin`, `owner`, `moderator`, `leader` về tiếng Anh, nên phải chạy lại lệnh này sau mỗi lần nâng cấp. Khởi động lại cùng phiên bản không ảnh hưởng.
 
 `deployment-settings.example.json` là bản đề xuất để người vận hành duyệt. Giá trị rỗng bắt buộc phải được biên tập trước khi nạp. Không dùng file này làm payload tự động và không đưa credential vào repository.

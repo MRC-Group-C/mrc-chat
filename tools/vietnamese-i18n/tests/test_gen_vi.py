@@ -1,6 +1,7 @@
 import importlib.util
 import json
 from pathlib import Path
+import re
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -173,6 +174,43 @@ class JsonAndUploadTests(unittest.TestCase):
                 # Rocket.Chat names custom OAuth settings `Accounts_OAuth_Custom-<Name>-<field>`;
                 # any other spelling creates an orphan setting that never shows a login button.
                 self.assertRegex(setting_id, r"^Accounts_OAuth_Custom-[^_-]+-[a-z_]+$")
+
+    def test_apply_role_descriptions_sends_scope_and_description(self):
+        roles = [{"id": "owner", "scope": "Subscriptions", "description": "Chủ sở hữu"}]
+        with patch.object(gen_vi, "_request_json", return_value={"success": True}) as request:
+            gen_vi.apply_role_descriptions("https://chat.example.test/", {}, roles)
+        request.assert_called_once_with(
+            "POST",
+            "https://chat.example.test/api/v1/roles.update",
+            {},
+            {"roleId": "owner", "name": "owner", "scope": "Subscriptions", "description": "Chủ sở hữu"},
+        )
+
+    def test_apply_role_descriptions_raises_when_server_rejects(self):
+        roles = [{"id": "owner", "scope": "Subscriptions", "description": "Chủ sở hữu"}]
+        with patch.object(gen_vi, "_request_json", return_value={"success": False}):
+            with self.assertRaises(gen_vi.InputError):
+                gen_vi.apply_role_descriptions("https://chat.example.test", {}, roles)
+
+    def _load_translation(self, *parts):
+        path = Path(__file__).parents[1].joinpath("translations", *parts)
+        return json.loads(path.read_text(encoding="utf-8"))["vi-VN"]
+
+    def test_artifact_excludes_out_of_scope_p4_keys(self):
+        artifact = self._load_translation("MRC_RC_Custom-Translations_vi-VN.json")
+        drafts = self._load_translation("drafts", "P4_out-of-scope_vi-VN.json")
+        self.assertEqual(set(artifact) & set(drafts), set())
+
+    def test_artifact_uses_new_tone_placement(self):
+        # HD-01 VH-04 requires one spelling across the file: xoá, hoá, huỷ.
+        old_style = re.compile(r"(?<![a-zà-ỹ])[a-zà-ỹ]*?([óòỏõọ][ae]|[úùủũụ]y)(?![a-zà-ỹ])", re.IGNORECASE)
+        artifact = self._load_translation("MRC_RC_Custom-Translations_vi-VN.json")
+        offenders = [
+            key
+            for key, value in artifact.items()
+            if old_style.search(value if isinstance(value, str) else " ".join(value.values()))
+        ]
+        self.assertEqual(offenders, [])
 
     def test_export_env_is_blocked_on_validation_error(self):
         with tempfile.TemporaryDirectory() as directory:

@@ -26,9 +26,10 @@ Tài liệu này là checklist bắt buộc cho Phòng CNTT và QA/PO mỗi khi 
 - [ ] Thực thi lệnh `upgrade` của công cụ `gen_vi.py`:
   ```powershell
   python tools/vietnamese-i18n/gen_vi.py --repo . upgrade `
-    --old-source-ref 8.9.0 `
-    --new-source-ref <TARGET_TAG> `
-    --custom tools/vietnamese-i18n/translations/MRC_RC_Custom-Translations_vi-VN.json `
+    --old-source-git-ref 8.9.0 `
+    --new-source-git-ref <TARGET_TAG> `
+    --new-vi-git-ref <TARGET_TAG> `
+    --translation tools/vietnamese-i18n/translations/MRC_RC_Custom-Translations_vi-VN.json `
     --output build/vietnamese-i18n/VH-10-report.json
   ```
 
@@ -64,6 +65,7 @@ Tài liệu này là checklist bắt buộc cho Phòng CNTT và QA/PO mỗi khi 
     --url https://chat-staging.miraclegroup.vn `
     --apply
   ```
+- [ ] Sau khi server chạy phiên bản mới, đặt lại huy hiệu vai trò vì server đã ghi đè về tiếng Anh: chạy lại lệnh trên với `--deployment-settings tools/vietnamese-i18n/deployment-settings.example.json` và kiểm tra huy hiệu hiện «Quản trị viên».
 - [ ] Thực hiện 5 kịch bản kiểm thử nghiệm thu hồi quy (đính kèm ảnh chụp màn hình):
   - [ ] **TC-VH-01:** Mở trang đăng nhập bằng trình duyệt English -> Hiển thị tiếng Việt.
   - [ ] **TC-VH-02:** Duyệt các màn hình chính -> Không còn chuỗi tiếng Anh P1/P2.

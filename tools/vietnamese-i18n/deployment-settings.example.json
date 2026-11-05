@@ -2,21 +2,6 @@
   "baseline": "8.9.0",
   "settings": [
     {
-      "id": "Language",
-      "value": "vi-VN",
-      "ready": true
-    },
-    {
-      "id": "Site_Name",
-      "value": "Chat Miracle",
-      "ready": true
-    },
-    {
-      "id": "Accounts_OAuth_Custom-Keycloak-button_label_text",
-      "value": "Đăng nhập bằng tài khoản MRC",
-      "ready": true
-    },
-    {
       "id": "Layout_Home_Title",
       "value": "Chat Miracle",
       "ready": true
@@ -24,21 +9,6 @@
     {
       "id": "Layout_Home_Body",
       "value": "<h3>Chào mừng bạn đến với Chat Miracle</h3><p>Nền tảng giao tiếp và trao đổi công việc nội bộ của Công ty MRC.</p><ul><li>Kênh thông báo toàn công ty: <b>#thong-bao-chung</b></li><li>Kênh hỗ trợ kỹ thuật: <b>#ho-tro-cntt</b></li><li>Kênh an toàn bảo mật: <b>#bao-mat-truc</b></li></ul><p>Mọi hỗ trợ xin liên hệ Phòng CNTT qua email <b>cntt@miraclegroup.vn</b>.</p>",
-      "ready": true
-    },
-    {
-      "id": "Layout_Login_Terms",
-      "value": "<p>Bằng việc đăng nhập hệ thống, bạn đồng ý với <a href=\"/terms-of-service\">Điều khoản dịch vụ</a> và <a href=\"/privacy-policy\">Chính sách bảo mật</a> của Công ty MRC.</p>",
-      "ready": true
-    },
-    {
-      "id": "Message_DateFormat",
-      "value": "DD/MM/YYYY",
-      "ready": true
-    },
-    {
-      "id": "Message_TimeFormat",
-      "value": "HH:mm",
       "ready": true
     },
     {
@@ -65,6 +35,28 @@
       "id": "Email_Footer",
       "value": "<div style=\"border-top: 1px solid #e1e5e8; margin-top: 28px; padding-top: 14px; font-size: 12px; color: #7f8c8d;\"><p style=\"margin: 0 0 6px 0;\">Đây là email thông báo tự động từ hệ thống Chat Miracle của Công ty MRC.</p><p style=\"margin: 0;\">Hỗ trợ kỹ thuật: <b>Phòng CNTT</b> · Email: <a href=\"mailto:cntt@miraclegroup.vn\" style=\"color: #1d74f5;\">cntt@miraclegroup.vn</a></p></div></div></body></html>",
       "ready": true
+    }
+  ],
+  "roles": [
+    {
+      "id": "admin",
+      "scope": "Users",
+      "description": "Quản trị viên"
+    },
+    {
+      "id": "owner",
+      "scope": "Subscriptions",
+      "description": "Chủ sở hữu"
+    },
+    {
+      "id": "moderator",
+      "scope": "Subscriptions",
+      "description": "Người điều phối"
+    },
+    {
+      "id": "leader",
+      "scope": "Subscriptions",
+      "description": "Trưởng nhóm"
     }
   ]
 }

@@ -559,6 +559,16 @@ def runtime_translation(translation):
     return dict(sorted(flat.items()))
 
 
+def apply_role_descriptions(url, headers, roles):
+    """Set the role labels shown next to user names, which come from the role itself and not from i18n."""
+    endpoint = f"{url.rstrip('/')}/api/v1/roles.update"
+    for role in roles:
+        body = {"roleId": role["id"], "name": role["id"], "scope": role["scope"], "description": role["description"]}
+        response = _request_json("POST", endpoint, headers, body)
+        if response.get("success") is not True:
+            raise InputError(f"Failed to update role {role['id']}: {response}")
+
+
 def run_upload(args):
     source = load_resource(args)
     wrapped = load_json_file(args.translation)
@@ -593,6 +603,7 @@ def run_upload(args):
                 s_res = _request_json("POST", s_endpoint, headers, {"value": s_val})
                 if s_res.get("success") is not True:
                     raise InputError(f"Failed to apply setting {s_id}: {s_res}")
+        apply_role_descriptions(args.url, headers, dep_data.get("roles", []))
     print(json.dumps({"uploaded": len(translation), "backup": str(backup_path), "verified": True, "success": True}, ensure_ascii=False))
     return 0
 

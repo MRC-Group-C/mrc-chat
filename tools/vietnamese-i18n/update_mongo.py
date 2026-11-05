@@ -60,6 +60,13 @@ db.rocketchat_settings.updateOne(
 print('Updated Custom_Translations with public: true');
 """ % json.dumps(compact_json)
 
+deployment = gen_vi.load_json_file(Path("tools/vietnamese-i18n/deployment-settings.example.json"))
+for role in deployment.get("roles", []):
+    mongo_script += "db.rocketchat_roles.updateOne({_id: %s}, {$set: {description: %s, _updatedAt: new Date()}});\n" % (
+        json.dumps(role["id"]),
+        json.dumps(role["description"], ensure_ascii=False),
+    )
+
 p = subprocess.run(
     ['docker', 'exec', '-i', os.environ.get('MRC_MONGO_CONTAINER', 'mrc-chat-mongo'), 'mongosh', 'rocketchat', '--quiet'],
     input=mongo_script,
