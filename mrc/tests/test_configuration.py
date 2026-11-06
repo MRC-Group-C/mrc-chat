@@ -684,6 +684,11 @@ class TestStagingDeployment:
     def test_rocketchat_trusts_one_proxy_for_client_ip(self, compose):
         assert "HTTP_FORWARDED_COUNT=${HTTP_FORWARDED_COUNT:-1}" in compose
 
+    def test_memory_is_capped_for_a_shared_host(self, compose):
+        assert "--wiredTigerCacheSizeGB" in compose, "Mongo must not take half the host RAM"
+        assert "mem_limit: ${MONGO_MEM_LIMIT:-2g}" in compose
+        assert "mem_limit: ${ROCKETCHAT_MEM_LIMIT:-2g}" in compose
+
     def test_ports_are_bound_to_loopback_for_caddy(self, compose):
         assert '"127.0.0.1:3000:3000"' in compose
         assert '"127.0.0.1:27017:27017"' in compose

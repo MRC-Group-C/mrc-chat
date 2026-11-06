@@ -14,7 +14,9 @@ services:
     image: mongodb/mongodb-community-server:8.0-ubi8
     container_name: mrc_chat_mongodb
     restart: always
-    command: ["mongod", "--replSet", "rs0", "--bind_ip_all", "--oplogSize", "2048"]
+    # Giới hạn bộ nhớ đệm WiredTiger và bộ nhớ container để chạy chung máy với dịch vụ khác
+    command: ["mongod", "--replSet", "rs0", "--bind_ip_all", "--oplogSize", "2048", "--wiredTigerCacheSizeGB", "${MONGO_CACHE_GB:-1}"]
+    mem_limit: ${MONGO_MEM_LIMIT:-2g}
     ports:
       - "127.0.0.1:27017:27017"
     volumes:
@@ -63,6 +65,7 @@ services:
         condition: service_healthy
       mongo-init-replica:
         condition: service_completed_successfully
+    mem_limit: ${ROCKETCHAT_MEM_LIMIT:-2g}
     ports:
       - "127.0.0.1:3000:3000"
     volumes:
