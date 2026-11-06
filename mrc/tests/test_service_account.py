@@ -28,6 +28,24 @@ def test_grant_rejects_permissions_missing_on_this_version():
         permissions_to_grant({}, ["not-a-permission"], "bot")
 
 
+def test_service_keeps_its_rate_limit_exemption():
+    assert "api-bypass-rate-limit" in SERVICE_PERMISSIONS
+
+
+def test_exemption_is_not_added_twice_when_bot_already_has_it():
+    current = {"api-bypass-rate-limit": ["admin", "bot", "app"]}
+
+    assert permissions_to_grant(current, ["api-bypass-rate-limit"], "bot") == []
+
+
+def test_exemption_is_restored_when_an_admin_removed_it_from_bot():
+    current = {"api-bypass-rate-limit": ["admin", "app"]}
+
+    updates = permissions_to_grant(current, ["api-bypass-rate-limit"], "bot")
+
+    assert updates == [{"_id": "api-bypass-rate-limit", "roles": ["admin", "app", "bot"]}]
+
+
 def test_service_never_receives_admin_only_control_permissions():
     assert "access-permissions" not in SERVICE_PERMISSIONS
     assert "delete-user" not in SERVICE_PERMISSIONS

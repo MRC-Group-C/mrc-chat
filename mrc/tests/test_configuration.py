@@ -47,6 +47,7 @@ try:
         DEFAULT_CUSTOM_FIELDS,
         build_target_settings,
         display_setting_value,
+        ensure_account_console_mfa,
         ensure_chat_claims,
         ensure_keycloak_client,
         main as setup_sso_main,
@@ -58,6 +59,7 @@ except ImportError:
         DEFAULT_CUSTOM_FIELDS,
         build_target_settings,
         display_setting_value,
+        ensure_account_console_mfa,
         ensure_chat_claims,
         ensure_keycloak_client,
         main as setup_sso_main,
@@ -80,6 +82,71 @@ class TestKeycloakRealmConfiguration:
         """Ensure realm JSON parses cleanly and has expected realm name."""
         assert realm_data.get("realm") == "mrc"
         assert realm_data.get("enabled") is True
+
+    def test_lockout_events_theme_and_link_lifespans(self, realm_data):
+        """Parameters from the SSO SRS appendix that the realm file must declare."""
+        assert realm_data["failureFactor"] == 5
+        assert realm_data["maxFailureWaitSeconds"] == 900
+        assert realm_data["maxDeltaTimeSeconds"] == 43200
+        assert realm_data["maxTemporaryLockouts"] == 3
+        assert realm_data["permanentLockout"] is False
+
+        assert realm_data["eventsEnabled"] is True
+        assert realm_data["eventsExpiration"] == 30 * 24 * 3600
+        assert realm_data["adminEventsEnabled"] is True
+
+        assert realm_data["loginTheme"] == "mrc-theme"
+        assert realm_data["actionTokenGeneratedByAdminLifespan"] == 72 * 3600
+        assert realm_data["attributes"]["actionTokenGeneratedByUserLifespan.reset-credentials"] == "900"
+
+    def test_identity_provider_with_sample_credentials_is_not_enabled(self, realm_data):
+        for provider in realm_data.get("identityProviders", []):
+            client_id = provider.get("config", {}).get("clientId", "")
+            if "sample" in client_id:
+                assert provider["enabled"] is False, f"IdP '{provider['alias']}' is enabled with sample credentials"
+
+    def test_mfa_flow_is_bound_realm_wide_with_two_levels(self, realm_data):
+        """Level 1 = password, level 2 = OTP; bound on the realm because a client-only override breaks SSO reuse."""
+        assert realm_data["browserFlow"] == "browser-mrc"
+        assert json.loads(realm_data["attributes"]["acr.loa.map"]) == {"mrc-mfa": "2"}
+
+        flows = {f["alias"]: f for f in realm_data["authenticationFlows"]}
+        configs = {c["alias"]: c["config"] for c in realm_data["authenticatorConfig"]}
+        levels = {}
+        for execution in flows["browser-mrc auth"]["authenticationExecutions"]:
+            sub = flows.get(execution.get("flowAlias"))
+            if not sub or execution["requirement"] != "CONDITIONAL":
+                continue
+            steps = {e.get("authenticator"): e for e in sub["authenticationExecutions"]}
+            condition = steps["conditional-level-of-authentication"]
+            level = configs[condition["authenticatorConfig"]]["loa-condition-level"]
+            levels[level] = next(
+                name for name in ("auth-username-password-form", "auth-otp-form") if name in steps
+            )
+            assert condition["requirement"] == "REQUIRED"
+            assert steps[levels[level]]["requirement"] == "REQUIRED"
+        assert levels == {"1": "auth-username-password-form", "2": "auth-otp-form"}
+
+    def test_otp_policy_matches_the_srs(self, realm_data):
+        assert realm_data["otpPolicyType"] == "totp"
+        assert realm_data["otpPolicyDigits"] == 6
+        assert realm_data["otpPolicyPeriod"] == 30
+
+    def test_chat_client_asks_for_mfa_by_default(self, realm_data):
+        client = next(c for c in realm_data["clients"] if c["clientId"] == "chat-miracle")
+        assert client["attributes"]["default.acr.values"] == "mrc-mfa"
+        assert client.get("authenticationFlowBindingOverrides", {}) == {}
+
+    def test_theme_keeps_parent_layout(self):
+        theme = REALM_JSON_PATH.parent.parent / "themes" / "mrc-theme" / "login" / "theme.properties"
+        if not theme.is_file():
+            pytest.skip("mrc-theme is not part of this repo")
+        props = dict(
+            line.split("=", 1) for line in theme.read_text(encoding="utf-8").splitlines()
+            if "=" in line and not line.startswith("#")
+        )
+        assert props["parent"] == "keycloak"
+        assert "css/login.css" in props["styles"].split(), "styles replaces the parent list; login.css keeps the layout"
 
     def test_chat_miracle_client_declaration(self, realm_data):
         """Verify chat-miracle client exists and conforms to confidential client spec."""
@@ -176,10 +243,11 @@ class TestKeycloakRealmConfiguration:
             if cid:
                 assert len(cid) <= 36, f"Client id '{cid}' exceeds 36 chars (Postgres VARCHAR(36) constraint)"
             attrs = c.get("attributes", {})
-            assert "default.acr.values" not in attrs, (
-                "default.acr.values causes fatal Keycloak 26 ACR validation error"
-            )
-            assert "min_acr" not in attrs, "min_acr not permitted without ACR mapping"
+            assert "min_acr" not in attrs, "Keycloak 26.0 has no minimum ACR; use default.acr.values"
+            if "default.acr.values" in attrs:
+                assert attrs["default.acr.values"] in json.loads(
+                    realm_data["attributes"]["acr.loa.map"]
+                ), "default ACR must be mapped in acr.loa.map or Keycloak rejects the login"
 
         for client_name, roles in realm_data.get("roles", {}).get("client", {}).items():
             for r in roles:
@@ -507,6 +575,51 @@ class TestChatClaims:
         assert keycloak.calls == []
 
 
+class TestAccountConsoleMfa:
+    """Account console can reset credentials, so it must demand the second factor too."""
+
+    KC_URL = "http://localhost:8080/realms/mrc/protocol"
+
+    @pytest.fixture
+    def keycloak(self, monkeypatch):
+        state = {"client": {"id": "ac-1", "clientId": "account-console", "attributes": {}}, "puts": 0}
+
+        def urlopen(req, timeout=5.0):
+            url, method = req.full_url, req.get_method()
+            if url.endswith("/token"):
+                return io.BytesIO(json.dumps({"access_token": "t"}).encode("utf-8"))
+            if "/clients?clientId=" in url:
+                return io.BytesIO(json.dumps([state["client"]]).encode("utf-8"))
+            if url.endswith("/clients/ac-1") and method == "PUT":
+                state["client"] = json.loads(req.data)
+                state["puts"] += 1
+                return io.BytesIO(b"")
+            raise AssertionError(f"Unexpected Keycloak call: {method} {url}")
+
+        monkeypatch.setattr(urllib.request, "urlopen", urlopen)
+        return state
+
+    def test_sets_default_acr_and_keeps_other_attributes(self, keycloak):
+        keycloak["client"]["attributes"] = {"pkce.code.challenge.method": "S256"}
+
+        ok, msg = ensure_account_console_mfa(self.KC_URL, admin_password="pw")
+
+        assert ok is True, msg
+        assert keycloak["client"]["attributes"] == {"pkce.code.challenge.method": "S256", "default.acr.values": "mrc-mfa"}
+
+    def test_second_run_changes_nothing(self, keycloak):
+        ensure_account_console_mfa(self.KC_URL, admin_password="pw")
+        ensure_account_console_mfa(self.KC_URL, admin_password="pw")
+
+        assert keycloak["puts"] == 1
+
+    def test_requires_admin_password(self, keycloak):
+        ok, msg = ensure_account_console_mfa(self.KC_URL)
+
+        assert ok is False
+        assert "KEYCLOAK_ADMIN_PASSWORD" in msg
+
+
 class TestSettingHelpers:
     """Rocket.Chat stores OAuth settings under hyphenated IDs."""
 
@@ -533,6 +646,55 @@ class TestComposeCustomFields:
         declared = json.loads(line.split("=", 1)[1].strip().strip("'"))
 
         assert declared == json.loads(DEFAULT_CUSTOM_FIELDS)
+
+    def test_every_keycloak_owned_field_is_locked_on_screen(self):
+        fields = json.loads(DEFAULT_CUSTOM_FIELDS)
+
+        assert set(fields) == {"employee_id", "org_unit", "job_title"}
+        assert all(field.get("disabled") is True for field in fields.values())
+
+
+class TestStagingDeployment:
+    """What a staging host needs from compose and Caddy: pinned release, replica set, real client IPs, locked /admin."""
+
+    DEPLOY = MRC_CHAT_DIR / "mrc" / "deploy"
+
+    @pytest.fixture(scope="class")
+    def compose(self):
+        return (self.DEPLOY / "compose.yaml").read_text(encoding="utf-8")
+
+    def test_release_is_pinned_and_never_latest(self, compose):
+        image = next(l for l in compose.splitlines() if "rocketchat/rocket.chat:" in l)
+
+        assert image.strip().endswith(":${RELEASE:-8.9.0}")
+        assert "latest" not in image
+        assert "RELEASE=8.9.0" in (self.DEPLOY / ".env.example").read_text(encoding="utf-8")
+
+    def test_database_uses_replica_set_rs0(self, compose):
+        assert "--replSet" in compose and "rs0" in compose
+        for variable in ("MONGO_URL", "MONGO_OPLOG_URL"):
+            line = next(l for l in compose.splitlines() if f"- {variable}=" in l)
+            assert "replicaSet=rs0" in line
+
+    def test_root_url_has_no_production_fallback(self, compose):
+        line = next(l for l in compose.splitlines() if "- ROOT_URL=" in l)
+
+        assert "${ROOT_URL:?" in line, "a staging host must not silently start with another environment's URL"
+
+    def test_rocketchat_trusts_one_proxy_for_client_ip(self, compose):
+        assert "HTTP_FORWARDED_COUNT=${HTTP_FORWARDED_COUNT:-1}" in compose
+
+    def test_ports_are_bound_to_loopback_for_caddy(self, compose):
+        assert '"127.0.0.1:3000:3000"' in compose
+        assert '"127.0.0.1:27017:27017"' in compose
+
+    def test_caddy_locks_admin_and_fails_closed(self):
+        caddy = (self.DEPLOY / "caddy" / "Caddyfile.snippet").read_text(encoding="utf-8")
+
+        assert "{$CHAT_DOMAIN}" in caddy
+        assert "path_regexp (?i)^/admin" in caddy
+        assert "not remote_ip 127.0.0.1 ::1 {$ADMIN_IP_RANGES:}" in caddy, "unset range must leave only localhost"
+        assert "reverse_proxy 127.0.0.1:3000" in caddy
 
 
 class TestCleanUpstreamInvariant:

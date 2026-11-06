@@ -42,6 +42,9 @@ SERVICE_PERMISSIONS = [
     "edit-team-member",
     "view-other-user-channels",
     "create-personal-access-tokens",
+    # Already granted to bot by default; listed so a rerun restores it if an admin removes it. Without it
+    # the API limiter (10 calls per 60 seconds by default) would throttle the nightly reconciliation.
+    "api-bypass-rate-limit",
 ]
 
 

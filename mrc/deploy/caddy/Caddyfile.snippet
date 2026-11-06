@@ -1,10 +1,13 @@
 # =============================================================================
 # MRC-CHAT CADDY REVERSE PROXY CONFIGURATION
-# Domain: chat.miraclegroup.vn
+# Biến môi trường của tiến trình Caddy (staging và production dùng chung tệp này):
+#   CHAT_DOMAIN      tên miền của Rocket.Chat, phải trùng host trong ROOT_URL
+#   ADMIN_IP_RANGES  các IP/CIDR được vào /admin, cách nhau bằng dấu cách.
+#                    Không đặt thì chỉ localhost vào được (từ chối khi thiếu cấu hình).
 # Location: mrc/deploy/caddy/Caddyfile.snippet
 # =============================================================================
 
-chat.miraclegroup.vn {
+{$CHAT_DOMAIN} {
     # -------------------------------------------------------------------------
     # 1. TIÊU ĐỀ BẢO MẬT NÂNG CAO (SECURITY HEADERS)
     # -------------------------------------------------------------------------
@@ -19,12 +22,14 @@ chat.miraclegroup.vn {
 
     # -------------------------------------------------------------------------
     # 2. GIỚI HẠN TRUY CẬP TRANG QUẢN TRỊ (SEC-CHT-06)
-    # Chỉ cho phép dải IP nội bộ văn phòng, VPN hoặc localhost truy cập /admin
+    # Chỉ cho phép dải IP quản trị (ADMIN_IP_RANGES: văn phòng, VPN) truy cập /admin
+    # Caddy phải là điểm vào đầu tiên; nếu có CDN/LB phía trước, remote_ip là IP của nó
+    # và phải khai báo trusted_proxies trước khi dựa vào quy tắc này.
     # Sử dụng path_regexp (?i) để khớp không phân biệt hoa thường (/admin, /Admin, /ADMIN)
     # -------------------------------------------------------------------------
     @admin_restricted {
         path_regexp (?i)^/admin
-        not remote_ip 127.0.0.1 ::1 10.0.0.0/8 172.16.0.0/12 192.168.0.0/16
+        not remote_ip 127.0.0.1 ::1 {$ADMIN_IP_RANGES:}
     }
     respond @admin_restricted "Access Denied: Administrative interface is restricted to internal corporate networks." 403
 

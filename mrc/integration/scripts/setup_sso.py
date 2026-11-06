@@ -55,6 +55,8 @@ from rc_sync.username import assert_canonical_username, normalize_username  # no
 # 2. DEFAULT SETTINGS & TARGET CONFIGURATION SCHEMA
 # =============================================================================
 
+# "disabled" is passed through to the profile input, so Keycloak-owned fields cannot be edited on screen
+# (MAP-15, MAP-16). It is a display lock only: Rocket.Chat does not check it on the server.
 DEFAULT_CUSTOM_FIELDS = json.dumps({
     "employee_id": {
         "type": "text",
@@ -63,6 +65,7 @@ DEFAULT_CUSTOM_FIELDS = json.dumps({
         "maxLength": 20,
         "public": True,
         "private": False,
+        "disabled": True,
         "modifyRecordField": False,
         "label": "Mã nhân viên"
     },
@@ -72,6 +75,7 @@ DEFAULT_CUSTOM_FIELDS = json.dumps({
         "maxLength": 120,
         "public": True,
         "private": False,
+        "disabled": True,
         "label": "Đơn vị"
     },
     "job_title": {
@@ -80,6 +84,7 @@ DEFAULT_CUSTOM_FIELDS = json.dumps({
         "maxLength": 120,
         "public": True,
         "private": False,
+        "disabled": True,
         "label": "Chức danh"
     }
 }, ensure_ascii=False, separators=(",", ":"))
@@ -424,6 +429,47 @@ def ensure_chat_claims(
     return True, f"User Profile and client scope '{CHAT_CLAIMS_SCOPE}' are in place for '{client_id}'"
 
 
+MFA_ACR = "mrc-mfa"
+ACCOUNT_CLIENT_ID = "account-console"
+
+
+def ensure_account_console_mfa(
+    kc_auth_url: str,
+    admin_user: str = "adm_mrc_root",
+    admin_password: str = "",
+    timeout: float = 5.0
+) -> Tuple[bool, str]:
+    """Require the second factor on the Account console, where credentials can be changed.
+
+    Keycloak creates this client itself, so the realm import cannot carry the setting:
+    without it a stolen password alone could remove the OTP and enrol a new one.
+    """
+    if not admin_password:
+        return False, "Securing the Account console requires KEYCLOAK_ADMIN_PASSWORD"
+
+    kc_base, realm = _split_keycloak_url(kc_auth_url)
+    admin = f"{kc_base}/admin/realms/{realm}"
+
+    try:
+        token = _keycloak_admin_token(kc_base, admin_user, admin_password, timeout)
+        clients = _keycloak_admin_call(
+            f"{admin}/clients?clientId={urllib.parse.quote(ACCOUNT_CLIENT_ID)}", token, timeout=timeout
+        )
+        if not clients:
+            return False, f"Client '{ACCOUNT_CLIENT_ID}' not found in realm '{realm}'"
+        client = clients[0]
+        attributes = client.setdefault("attributes", {})
+        if attributes.get("default.acr.values") != MFA_ACR:
+            attributes["default.acr.values"] = MFA_ACR
+            _keycloak_admin_call(f"{admin}/clients/{client['id']}", token, "PUT", client, timeout)
+    except urllib.error.HTTPError as e:
+        return False, f"Keycloak Admin API rejected the Account console setup (HTTP {e.code}): {e.reason}"
+    except Exception as e:
+        return False, f"Failed to secure the Account console: {e}"
+
+    return True, f"'{ACCOUNT_CLIENT_ID}' requires ACR '{MFA_ACR}'"
+
+
 def ensure_keycloak_client(
     kc_auth_url: str,
     client_id: str = "chat-miracle",
@@ -705,6 +751,9 @@ def run_apply(
     claims_ok, claims_msg = ensure_chat_claims(kc_auth_url, client_id, kc_admin_user, kc_admin_password)
     print(f"  -> Keycloak Claims: {'[OK]' if claims_ok else '[NOTICE]'} {claims_msg}")
 
+    acct_ok, acct_msg = ensure_account_console_mfa(kc_auth_url, kc_admin_user, kc_admin_password)
+    print(f"  -> Keycloak Account console: {'[OK]' if acct_ok else '[NOTICE]'} {acct_msg}")
+
     # 2. Connect to Rocket.Chat
     print(f"\n[2/3] Connecting to Rocket.Chat at {rc_url} ...")
     client = RocketChatAdminClient(rc_url)
@@ -910,7 +959,7 @@ def run_tests() -> int:
                 check("chat-miracle protocol is 'openid-connect'", cm_client.get("protocol") == "openid-connect")
                 check("chat-miracle client id <= 36 chars", len(cm_client.get("id", "")) <= 36)
                 attrs = cm_client.get("attributes", {})
-                check("chat-miracle attributes has no default.acr.values", "default.acr.values" not in attrs)
+                check("chat-miracle requires the MFA ACR by default", attrs.get("default.acr.values") == MFA_ACR)
 
                 # Validate redirectUris
                 redirect_uris = cm_client.get("redirectUris", [])

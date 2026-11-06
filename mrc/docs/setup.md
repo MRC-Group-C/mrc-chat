@@ -241,7 +241,9 @@ Quy trình chuẩn hóa 3 bước giúp kỹ sư hạ tầng triển khai toàn 
    Mở `mrc/deploy/.env` bằng trình biên tập văn bản và xác nhận:
    ```ini
    # --- Tên Miền & Mạng Dịch Vụ ---
-   ROOT_URL=https://chat.miraclegroup.vn
+   RELEASE=8.9.0
+   ROOT_URL=https://chat.miraclegroup.vn   # bắt buộc; staging dùng tên miền staging
+   HTTP_FORWARDED_COUNT=1                  # Caddy đứng trước Rocket.Chat
    PORT=3000
    BIND_IP=127.0.0.1
    SITE_NAME="Chat Miracle"
@@ -400,6 +402,22 @@ Hệ thống định danh dùng Keycloak (đích 26.5.5, local đang 26.0.0). C�
 - **Danh sách Web Origins**: `+`, `https://chat.miraclegroup.vn`, `http://localhost:3000`, `http://127.0.0.1:3000`.
 - **User Profile**: Keycloak 26 chỉ lưu thuộc tính đã khai báo trong User Profile; thuộc tính chưa khai báo bị bỏ qua. Nếu thiếu `full_name`, claim `display_name` không có giá trị và Rocket.Chat hiển thị tên bị đảo (ví dụ "Phương Đặng Thu"). `setup_sso.py --keycloak-claims` khai báo `full_name`, `employee_id` qua Admin API, chỉ admin được sửa.
 - **Không khai báo scope trong `mrc-realm.json`**: mảng `clientScopes` khác rỗng làm lần import không tạo các scope mặc định `profile`, `email`. Sau khi import realm mới, chạy `setup_sso.py --keycloak-claims`.
+- **Thông số đã khai báo trong `mrc-realm.json`** (theo phụ lục tham số của SRS SSO):
+  - Khoá tạm 15 phút sau 5 lần sai, khoá hẳn sau 3 lần khoá tạm (`maxTemporaryLockouts=3`).
+  - Lưu sự kiện đăng nhập và quản trị 30 ngày.
+  - Theme đăng nhập `mrc-theme`. `theme.properties` phải khai báo `styles=css/login.css css/custom.css`: dòng `styles` thay thế danh sách của theme cha, nếu chỉ ghi `css/custom.css` thì mất bố cục chuẩn (menu ngôn ngữ bung ra che ô đăng nhập, khung trải hết chiều ngang). `messages_vi.properties` có 54 chuỗi: đăng nhập, thiết lập OTP, nhập mã, đăng xuất, trang lỗi và hết phiên (file dùng ký tự thoát `\uXXXX`, bộ cài gốc của Keycloak chỉ có tiếng Anh).
+  - Liên kết đặt lại mật khẩu 15 phút (`actionTokenGeneratedByUserLifespan.reset-credentials=900`), liên kết kích hoạt 72 giờ.
+  - Liên kết Google Workspace **tắt**, vì đang dùng client ID mẫu; chỉ bật lại khi có thông tin thật.
+- **Chưa khai báo**: nhóm `/org` và `/func`, scope `mrc.profile` và `mrc.groups`, đường passkey (`mrc-phr`, nhóm `grp-passkey-required`), danh sách mật khẩu bị lộ, máy chủ thư SMTP.
+
+#### MFA (ACR `mrc-mfa`)
+
+- **Luồng `browser-mrc`**: Cookie → `browser-mrc auth` gồm hai nhánh có điều kiện theo mức xác thực: mức 1 là mật khẩu, mức 2 là OTP (TOTP 6 số, 30 giây). Điều kiện dùng `conditional-level-of-authentication` (`loa-max-age=36000`, nghĩa là đã qua OTP trong 10 giờ thì không hỏi lại).
+- **ACR**: thuộc tính realm `acr.loa.map={"mrc-mfa":"2"}`; client `chat-miracle` có `default.acr.values=mrc-mfa` nên mọi lần đăng nhập vào chat đều qua mức 2. Người chưa có OTP bị buộc đăng ký ngay (`CONFIGURE_TOTP`).
+- **Phải gán luồng ở cấp realm** (`browserFlow=browser-mrc`). Nếu chỉ ghi đè luồng trên client, phiên SSO đang có bị từ chối (HTTP 400, log "No condition found for level '1'"). Vì vậy `authenticationFlowBindingOverrides` của client để rỗng.
+- **Account console**: client `account-console` do Keycloak tự tạo nên không đưa vào được `mrc-realm.json` (import báo trùng client). `setup_sso.py` đặt `default.acr.values=mrc-mfa` cho nó. Bỏ bước này thì chỉ cần mật khẩu là vào Account console xoá OTP rồi đăng ký OTP khác. Sau khi import realm mới phải chạy `setup_sso.py`.
+- **Quên thiết bị OTP**: quản trị viên xoá credential OTP của người dùng (Admin Console → Users → Credentials); lần đăng nhập sau họ đăng ký lại. Chỉ làm khi đã xác minh danh tính người yêu cầu.
+- **Đã kiểm chứng trên Keycloak 26.0.0 local**: đăng nhập lần đầu bị buộc đăng ký OTP; phiên SSO dùng lại không hỏi OTP; phiên mới hỏi mật khẩu rồi OTP, mã sai bị từ chối; thông báo sai tên đăng nhập và sai mật khẩu giống hệt nhau; Account console yêu cầu bước đăng ký OTP; import realm vào Keycloak mới tái tạo đủ luồng.
 
 ---
 
@@ -416,22 +434,25 @@ Hệ thống định danh dùng Keycloak (đích 26.5.5, local đang 26.0.0). C�
 
 ### 3.3 Cơ Chế Tự Động Gộp Tài Khoản (Account Auto-Merging)
 
-Khi triển khai giải pháp trong môi trường doanh nghiệp, nhiều nhân viên đã được cấp tài khoản trước (*pre-provisioned*) hoặc tạo tài khoản cục bộ ban đầu. Để loại bỏ hiện tượng lỗi trùng lặp tài khoản khi đăng nhập SSO, Rocket.Chat bắt buộc phải cấu hình đồng thời 2 cờ:
+Nhân viên được cấp tài khoản chat trước (*pre-provisioned*) bởi rc-sync, trước lần đăng nhập SSO đầu tiên. Để lần đăng nhập đầu gắn vào đúng tài khoản đó thay vì tạo tài khoản trùng, Rocket.Chat bắt buộc phải cấu hình đồng thời 2 cờ:
 
 ```properties
 Accounts_OAuth_Custom_Keycloak_merge_users = true
 Accounts_OAuth_Custom_Keycloak_merge_users_distinct_services = true
 ```
 
-#### Cơ chế vận hành:
-1. **Neo Đối Soát Định Danh**:
+#### Cơ chế vận hành (theo mã nguồn Rocket.Chat 8.9.0, `custom_oauth_server.js`):
+1. **Neo đối soát là tên đăng nhập, không phải email**:
    - `Accounts_OAuth_Custom_Keycloak_key_field = "username"`
    - `Accounts_OAuth_Custom_Keycloak_username_field = "preferred_username"`
    - `Accounts_OAuth_Custom_Keycloak_email_field = "email"`
-2. **Kịch bản gộp tài khoản tồn tại sẵn theo email**:
-   Khi nhân viên đăng nhập SSO lần đầu, Keycloak trả về ID Token chứa email (ví dụ `phuong.dt@miraclegroup.vn`).
-   - Nếu `merge_users = true`: Rocket.Chat tìm thấy tài khoản đã có email này trong bảng `db.users`. Thay vì ném lỗi `Email already exists`, hệ thống tự động gán liên kết định danh Keycloak vào mảng `services.keycloak` của tài khoản này.
-   - Nếu `merge_users_distinct_services = true`: Cho phép gộp định danh ngay cả khi tài khoản ban đầu được tạo bằng dịch vụ khác hoặc bằng mật khẩu cục bộ (`password`). Nếu thiếu cờ này, quá trình đăng nhập SSO sẽ thất bại với mã lỗi HTTP 403.
+2. **Kịch bản gộp**: khi nhân viên đăng nhập SSO lần đầu, Rocket.Chat tìm tài khoản có cùng `username` (không phân biệt hoa thường).
+   - `merge_users_distinct_services = true`: cho phép tìm cả tài khoản chưa gắn dịch vụ `keycloak`, tức tài khoản cấp trước. Nếu tắt, Rocket.Chat chỉ tìm tài khoản đã gắn dịch vụ này, không thấy tài khoản cấp trước và cố tạo tài khoản mới trùng tên.
+   - `merge_users = true`: khi tìm thấy, ghi `services.keycloak.id = sub`, cập nhật email (đánh dấu đã xác minh) và tên hiển thị. Nếu tắt, báo lỗi `User with username ... already exists`.
+3. **Điều kiện an toàn bắt buộc (SEC-CHT-03)**: vì gộp theo tên đăng nhập, ai kiểm soát được `preferred_username` trong Keycloak thì chiếm được tài khoản chat cùng tên. Vì vậy:
+   - Người dùng không được tự sửa username ở Keycloak (`editUsernameAllowed=false`, đã bật).
+   - Không được có tài khoản Rocket.Chat cục bộ nào ngoài tài khoản cứu hộ `adm-local-*`. Hiện còn `svc-rc-sync` (bot), nên **không được tạo người dùng Keycloak tên `svc-rc-sync`**.
+   - rc-sync phải kiểm tra `services.keycloak.id` khớp `sub` trong `iam.rc_link` khi đối soát (chưa làm, STT 26).
 
 ---
 
@@ -451,6 +472,17 @@ Bảo đảm tính toàn vẹn của mô hình **Single Source of Truth** — m�
 | `Accounts_AllowDeleteOwnAccount` | `false` | Ngăn người dùng tự xóa tài khoản để tiêu hủy dữ liệu trao đổi công việc. |
 | `Accounts_TwoFactorAuthentication_Enabled` | `false` | Vô hiệu hóa 2FA cục bộ vì MFA đã được thực thi tập trung tại tầng Keycloak (`mrc-mfa`). |
 | `UTF8_User_Names_Validation` | `[0-9a-zA-Z-_.]+` | Biểu thức chính quy cho phép ký tự tên người dùng tương thích chuẩn MAP-07. |
+| `Accounts_LoginExpiration` | `1` | Token đăng nhập hết hạn sau 1 ngày (mục 10.4 của tài liệu). |
+| `API_Enable_Rate_Limiter` | `true` | Bật giới hạn tần suất API (mặc định 10 lời gọi/60 giây). `svc-rc-sync` được miễn nhờ quyền `api-bypass-rate-limit` của role `bot`, xem mục 8.4. |
+| `Accounts_CustomFields` | 3 trường, mỗi trường `disabled: true` | Khoá sửa Mã nhân viên, Đơn vị, Chức danh trên màn hình hồ sơ. **Chỉ là khoá giao diện**: máy chủ không kiểm tra khoá này khi nhận lời gọi API. Giá trị bị sửa lén chỉ được chỉnh lại khi rc-sync đối soát hằng đêm (chưa làm, STT 26). |
+
+Các khoá trên đều đặt bằng `OVERWRITE_SETTING_*` trong `compose.yaml`, nên quản trị viên không đổi được trên giao diện. Kiểm tra giá trị thật sự đến từ biến môi trường (mọi dòng phải có `processEnvValue`):
+
+```bash
+docker exec mrc_chat_mongodb mongosh --quiet rocketchat --eval "db.rocketchat_settings.find({valueSource:'processEnvValue'},{valueSource:1}).forEach(s=>print(s._id,s.valueSource))"
+```
+
+**Ngoại lệ:** 30 thiết lập OAuth `Accounts_OAuth_Custom-Keycloak-*` **không** bị ghi đè như vậy (`valueSource` là `packageValue`). Biến `Accounts_OAuth_Custom_Keycloak_*` trong `compose.yaml` chỉ cho giá trị ban đầu khi dịch vụ được tạo lần đầu; sau đó giá trị trong CSDL do `setup_sso.py` ghi, và có thể khác biến môi trường (đã gặp ở `token_path`). Muốn đổi, ví dụ xoay vòng client secret, phải chạy lại `setup_sso.py`, không chỉ sửa `.env`.
 
 ---
 
@@ -1017,7 +1049,7 @@ python mrc/integration/scripts/setup_service_account.py --env-file mrc/deploy/.e
 
 Script tạo bot `svc-rc-sync`, cấp quyền và ghi `RC_SYNC_USER_ID`, `RC_SYNC_TOKEN` vào tệp env, không in ra màn hình. Chạy lại để xoay vòng token (90 ngày).
 
-**Khác với mục 10.5 của tài liệu:** bản Community trả lỗi `This is an enterprise feature` khi gọi `roles.create`, nên không tạo được `mrc-provisioner`. Script thêm 11 quyền của mục 10.5 và `create-personal-access-tokens` vào role có sẵn `bot`, role này đã được miễn rate limit.
+**Khác với mục 10.5 của tài liệu:** bản Community trả lỗi `This is an enterprise feature` khi gọi `roles.create`, nên không tạo được `mrc-provisioner`. Script thêm 11 quyền của mục 10.5 và `create-personal-access-tokens` vào role có sẵn `bot`, đồng thời bảo đảm `api-bypass-rate-limit` còn gồm `bot`. Quyền này miễn giới hạn tần suất API (mặc định 10 lời gọi/60 giây); đã kiểm tra 40 lời gọi liên tiếp bằng token của `svc-rc-sync` đều trả 200.
 
 **Đánh đổi:** mọi tài khoản bot đều có các quyền này, gồm `assign-roles`. Vì vậy:
 - Không tạo thêm bot. Bot thông báo ở STT 37 phải dùng webhook đến.

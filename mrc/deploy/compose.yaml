@@ -55,7 +55,7 @@ services:
   # 3. Ứng dụng Rocket.Chat 8.9.0 LTS Community Edition
   # ---------------------------------------------------------------------------
   rocketchat:
-    image: registry.rocket.chat/rocketchat/rocket.chat:8.9.0
+    image: registry.rocket.chat/rocketchat/rocket.chat:${RELEASE:-8.9.0}
     container_name: mrc_chat_rocketchat
     restart: unless-stopped
     depends_on:
@@ -70,7 +70,10 @@ services:
     environment:
       - TZ=Asia/Ho_Chi_Minh
       - PORT=3000
-      - ROOT_URL=${ROOT_URL:-https://chat.miraclegroup.vn}
+      - ROOT_URL=${ROOT_URL:?Set ROOT_URL in mrc/deploy/.env to the public https URL}
+      # Caddy đứng trước và ghi đè X-Forwarded-For; đếm 1 lớp proxy để Rocket.Chat thấy IP thật của người dùng
+      # (nếu không, mọi người dùng chung IP của Caddy và dùng chung hạn mức API rate limiter)
+      - HTTP_FORWARDED_COUNT=${HTTP_FORWARDED_COUNT:-1}
       - MONGO_URL=${MONGO_URL:-mongodb://mongodb:27017/rocketchat?replicaSet=rs0}
       - MONGO_OPLOG_URL=${MONGO_OPLOG_URL:-mongodb://mongodb:27017/local?replicaSet=rs0}
       - DEPLOY_METHOD=docker
@@ -111,7 +114,7 @@ services:
       - OVERWRITE_SETTING_UTF8_User_Names_Validation=[0-9a-zA-Z-_.]+
       - OVERWRITE_SETTING_API_Enable_Rate_Limiter=true
       # Trường hồ sơ MAP-15, MAP-16 (giá trị một dòng, phải khớp DEFAULT_CUSTOM_FIELDS trong setup_sso.py)
-      - 'OVERWRITE_SETTING_Accounts_CustomFields={"employee_id":{"type":"text","required":false,"minLength":0,"maxLength":20,"public":true,"private":false,"modifyRecordField":false,"label":"Mã nhân viên"},"org_unit":{"type":"text","required":false,"maxLength":120,"public":true,"private":false,"label":"Đơn vị"},"job_title":{"type":"text","required":false,"maxLength":120,"public":true,"private":false,"label":"Chức danh"}}'
+      - 'OVERWRITE_SETTING_Accounts_CustomFields={"employee_id":{"type":"text","required":false,"minLength":0,"maxLength":20,"public":true,"private":false,"disabled":true,"modifyRecordField":false,"label":"Mã nhân viên"},"org_unit":{"type":"text","required":false,"maxLength":120,"public":true,"private":false,"disabled":true,"label":"Đơn vị"},"job_title":{"type":"text","required":false,"maxLength":120,"public":true,"private":false,"disabled":true,"label":"Chức danh"}}'
 
       # Custom OAuth Keycloak (Mục 10.2)
       - Accounts_OAuth_Custom_Keycloak=true
